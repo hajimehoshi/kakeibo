@@ -1,0 +1,185 @@
+/*
+ * Reset
+ */
+a, abbr, acronym, address, article, aside, audio, b, big, blockquote, body, caption, cite, code, dd, del, dfn, dialog, div, dl, dt, em, fieldset, figure, footer, form, h1, h2, h3, h4, h5, h6, header, hgroup, html, i, iframe, img, ins, kbd, label, legend, li, mark, menu, nav, object, ol, p, pre, q, samp, section, small, span, strong, sub, sup, table, tbody, td, tfoot, th, thead, time, tr, tt, ul, var, video {
+    background: transparent;
+    border: 0;
+    margin:0;
+    outline: 0;
+    padding:0;
+    text-align: left;
+    vertical-align: baseline;
+}
+address, caption, cite, code, dfn, em, strong, th, var {
+    font-style: normal;
+    font-weight: normal;
+}
+h1, h2, h3, h4, h5, h6 {
+    font-weight: normal;
+}
+ol, ul {
+    list-style: none;
+}
+
+/*
+ * Base
+ */
+ul, ol {
+    margin-left: 1.5em;
+}
+ul {
+    list-style-position: outside;
+    list-style-type: disc;
+}
+ol {
+    list-style-position: outside;
+    list-style-type: decimal;
+}
+
+/*
+ * Fonts
+ */
+body {
+    font-family: 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif';
+}
+body > header h1 {
+    /*font-family: 'HelveticaNeue-CondensedBold', 'Helvetica Neue', 'Helvetica', 'Arial Narrow Bold', 'sans-serif';*/
+    font-weight: normal;
+    /*font-stretch: condensed;*/
+}
+
+/*
+ * Baseline
+ * line-height unit: 24px
+ */
+address, caption, dialog, dl, h1, h2, h3, h4, h5, h6, ol, p, pre, ul {
+    position: relative;
+}
+address, caption, dialog, ol, p, pre, ul {
+    font-size: 14px;
+    line-height: 24px;
+    text-align: justify;
+    top: 7px;
+}
+body > header h1 {
+    font-size: 20px;
+    line-height: 24px;
+    top: 17px;
+}
+body > nav h1 {
+    font-size: 14px;
+    line-height: 24px;
+    top: 7px;
+}
+body > section h1 {
+    font-size: 28px;
+    line-height: 48px;
+    margin-bottom: 24px;
+    top: -10px;
+}
+body > section h2 {
+    font-size: 18px;
+    line-height: 24px;
+    top: 5px;
+}
+body > section h3 {
+    font-size: 14px;
+    line-height: 24px;
+    top: 7px;
+}
+
+/*
+ * Colors
+ */
+body {
+    background-color: #fff;
+    color: #222;
+}
+body > header {
+    background-color: #222;
+    color: #fff;
+}
+body > nav {
+    background-color: #ddd;
+}
+a:link {
+    color: #222;
+}
+a:visited {
+    color: #888;
+}
+a:hover {
+    color: #811;
+}
+a:active {
+    color: #811;
+}
+
+/*
+ * Layout
+ */
+body {
+    display: flex;
+    flex-wrap: wrap;
+}
+body > header,
+body > nav,
+body > section {
+    -moz-box-sizing: content-box;
+    box-sizing: content-box;
+    display: block;
+    padding-left: 24px;
+    padding-right: 24px;
+    position: relative;
+}
+body > header {
+    flex: 0 1 100%;
+    height: 48px;
+}
+body > nav {
+    flex: 0 1 240px;
+    padding-bottom: 24px;
+    padding-top: 24px;
+}
+body > section {
+    flex: 1 1 auto;
+    padding-bottom: 24px;
+    padding-top: 24px;
+}
+
+/*
+ * Grids
+ */
+.colgroup {
+    display: -webkit-box;
+    display: -moz-box;
+    display: box;
+}
+.colgroup, body > section {
+    clear: both;
+}
+.colgroup > section {
+    margin-right: 24px;
+}
+.colgroup > section:last-child {
+    margin-right: 0;
+}
+.width1 {
+    width: 200px;
+}
+.width2 {
+    width: 424px;
+}
+.width3 {
+    width: 648px;
+}
+.width4 {
+    width: 872px;
+}
+
+/*
+ * Debug
+ */
+.debug {
+    background-image: url('/images/debug_lines.png');
+}
