@@ -1,62 +1,52 @@
 package main
 
 import (
-	"fmt"
 	"github.com/gopherjs/gopherjs/js"
+	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/nu7hatch/gouuid"
-	"time"
 )
 
-type Date struct {
-	t time.Time
-}
-
-func NewDate(year int, month time.Month, day int) Date {
-	return Date{time.Date(year, month, day, 0, 0, 0, 0, time.UTC)}
-}
-
-func Today() Date {
-	return Date{time.Now().UTC()}
-}
-
-func (d Date) AddDate(years, months, days int) Date {
-	return Date{d.t.AddDate(years, months, days)}
-}
-
-func (d Date) String() string {
-	return fmt.Sprintf("%04d-%02d-%02d", d.t.Year(), d.t.Month(), d.t.Day())
+func printError(val interface{}) {
+	js.Global.Get("console").Call("error", val)
 }
 
 type MoneyAmount int
 
 type ItemPrinter interface {
-	PrintDate(date Date)
+	PrintDate(date date.Date)
 	PrintSubject(subject string)
 	PrintMoneyAmount(amount MoneyAmount)
 }
 
+type ItemSaver interface {
+	Save(val map[string]interface{})
+}
+
 type Item struct {
-	id      uuid.UUID
-	date    Date
-	subject string
-	amount  MoneyAmount
+	id      uuid.UUID   `json:"id"`
+	date    date.Date   `json:"date"`
+	subject string      `json:"subject"`
+	amount  MoneyAmount `json:"amount"`
 	printer ItemPrinter
 }
 
-func NewItem(printer ItemPrinter) *Item {
+func NewItem() *Item {
 	/*id, err := uuid.NewV4()
 	if err != nil {
 		log.Fatal(err)
 	}*/
 	item := &Item{
-		date:    Today(),
-		printer: printer,
+		date: date.Today(),
 	}
-	item.print()
 	return item
 }
 
-func (i *Item) UpdateDate(date Date) {
+func (i *Item) SetPrinter(printer ItemPrinter) {
+	i.printer = printer
+	i.print()
+}
+
+func (i *Item) UpdateDate(date date.Date) {
 	i.date = date
 	i.print()
 }
@@ -83,21 +73,50 @@ func (i *Item) print() {
 	i.printer.PrintMoneyAmount(i.amount)
 }
 
-type FormItemPrinter struct {
+type ItemForm struct {
+	item *Item
 	form js.Object
 }
 
-func (f *FormItemPrinter) PrintDate(date Date) {
+func NewItemForm(item *Item, form js.Object) *ItemForm {
+	f := &ItemForm{item, form}
+	item.SetPrinter(f)
+	f.addEventHandlers()
+	return f
+}
+
+func (f *ItemForm) addEventHandlers() {
+	inputDate := f.form.Call("querySelector", "input[name=date]")
+	inputDate.Call("addEventListener", "input", func() {
+		dateStr := inputDate.Get("value").Str()
+		date, err := date.ParseISO8601(dateStr)
+		if err != nil {
+			printError(err)
+			return
+		}
+		f.item.UpdateDate(date)
+	})
+	inputSubject := f.form.Call("querySelector", "input[name=subject]")
+	inputSubject.Call("addEventListener", "input", func() {
+		print("hoge")
+	})
+	inputMoneyAmount := f.form.Call("querySelector", "input[name=money_amount]")
+	inputMoneyAmount.Call("addEventListener", "input", func() {
+		print("hoge")
+	})
+}
+
+func (f *ItemForm) PrintDate(date date.Date) {
 	input := f.form.Call("querySelector", "input[name=date]")
 	input.Set("value", date.String())
 }
 
-func (f *FormItemPrinter) PrintSubject(subject string) {
+func (f *ItemForm) PrintSubject(subject string) {
 	input := f.form.Call("querySelector", "input[name=subject]")
 	input.Set("value", subject)
 }
 
-func (f *FormItemPrinter) PrintMoneyAmount(amount MoneyAmount) {
+func (f *ItemForm) PrintMoneyAmount(amount MoneyAmount) {
 	input := f.form.Call("querySelector", "input[name=money_amount]")
 	input.Set("value", amount)
 }
@@ -105,9 +124,9 @@ func (f *FormItemPrinter) PrintMoneyAmount(amount MoneyAmount) {
 func main() {
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_record")
-	printer := &FormItemPrinter{form}
-	item := NewItem(printer)
-	print(item)
+	item := NewItem()
+	printer := NewItemForm(item, form)
+	print(printer)
 	// TODO: Move this call somewhere
 	//js.Global.Call("alert", "Hello, Kakeibo!")
 }
