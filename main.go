@@ -1,9 +1,10 @@
+// +build js
+
 package main
 
 import (
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/hajimehoshi/kakeibo/date"
-	"github.com/nu7hatch/gouuid"
 )
 
 func printError(val interface{}) {
@@ -23,7 +24,7 @@ type ItemSaver interface {
 }
 
 type Item struct {
-	id      uuid.UUID   `json:"id"`
+	id      UUID        `json:"id"`
 	date    date.Date   `json:"date"`
 	subject string      `json:"subject"`
 	amount  MoneyAmount `json:"amount"`
@@ -122,6 +123,10 @@ func (f *ItemForm) PrintMoneyAmount(amount MoneyAmount) {
 }
 
 func main() {
+	for i := 0; i < 100; i++ {
+		print(GenerateUUID().String())
+	}
+
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_record")
 	item := NewItem()

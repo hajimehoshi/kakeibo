@@ -1,3 +1,3 @@
 #!/bin/sh
 
-gopherjs build -o public/scripts/main.js
+gopherjs build -o app/public/scripts/main.js
