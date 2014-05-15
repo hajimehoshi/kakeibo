@@ -3,8 +3,10 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/hajimehoshi/kakeibo/date"
+	"strconv"
 )
 
 func printError(val interface{}) {
@@ -24,22 +26,30 @@ type ItemSaver interface {
 }
 
 type Item struct {
-	id      UUID        `json:"id"`
+	meta    Meta        `json:"meta"`
 	date    date.Date   `json:"date"`
 	subject string      `json:"subject"`
 	amount  MoneyAmount `json:"amount"`
-	printer ItemPrinter
+	printer ItemPrinter `json:"-"`
 }
 
 func NewItem() *Item {
-	/*id, err := uuid.NewV4()
-	if err != nil {
-		log.Fatal(err)
-	}*/
 	item := &Item{
+		meta: NewMeta(),
 		date: date.Today(),
 	}
 	return item
+}
+
+func (i *Item) MarshalJSON() ([]byte, error) {
+	m := map[string]interface{}{}
+	m["id"] = i.meta.ID.String()
+	m["last_updated"] = strconv.FormatInt(i.meta.LastUpdated, 10)
+	m["is_deleted"] = i.meta.IsDeleted
+	m["date"] = i.date.String()
+	m["subject"] = i.subject
+	m["amount"] = int(i.amount)
+	return json.Marshal(m)
 }
 
 func (i *Item) SetPrinter(printer ItemPrinter) {
@@ -68,7 +78,6 @@ func (i *Item) Save() {
 }
 
 func (i *Item) print() {
-	// TODO: Check ID here?
 	i.printer.PrintDate(i.date)
 	i.printer.PrintSubject(i.subject)
 	i.printer.PrintMoneyAmount(i.amount)
@@ -122,16 +131,23 @@ func (f *ItemForm) PrintMoneyAmount(amount MoneyAmount) {
 	input.Set("value", amount)
 }
 
-func main() {
-	for i := 0; i < 100; i++ {
-		print(GenerateUUID().String())
-	}
+type tmpIDBObserver struct {
+	item *Item
+}
 
+func (t *tmpIDBObserver) OnReady(d *IDB) {
+	d.Save(t.item)
+}
+
+func main() {
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_record")
 	item := NewItem()
 	printer := NewItemForm(item, form)
-	print(printer)
+	_ = printer
+
+	idb := NewIDB("kakeibo", &tmpIDBObserver{item})
+	_ = idb
 	// TODO: Move this call somewhere
 	//js.Global.Call("alert", "Hello, Kakeibo!")
 }
