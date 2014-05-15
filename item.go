@@ -3,12 +3,13 @@ package main
 import (
 	"encoding/json"
 	"github.com/hajimehoshi/kakeibo/date"
+	"github.com/hajimehoshi/kakeibo/idb"
 	"strconv"
 	"reflect"
 )
 
 func init() {
-	schemaSet.Add(reflect.TypeOf(&Item{}), &Schema{
+	schemaSet.Add(reflect.TypeOf(&Item{}), &idb.Schema{
 		Name: "items",
 	})
 }
@@ -96,5 +97,4 @@ func (i *Item) save() {
 	if err != nil {
 		print(err.Error())
 	}
-
 }

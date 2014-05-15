@@ -5,11 +5,12 @@ package main
 import (
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/hajimehoshi/kakeibo/date"
+	"github.com/hajimehoshi/kakeibo/idb"
 )
 
-var schemaSet = NewSchemaSet()
+var schemaSet = idb.NewSchemaSet()
 
-var db *IDB
+var db *idb.IDB
 
 type Saver interface {
 	Save(value interface{}) error
@@ -69,12 +70,12 @@ func (f *ItemForm) PrintMoneyAmount(amount MoneyAmount) {
 
 type IDBObserverImpl struct {}
 
-func (t *IDBObserverImpl) OnReady(d *IDB) {
+func (t *IDBObserverImpl) OnReady(d *idb.IDB) {
 	ready()
 }
 
 func main() {
-	db = NewIDB("kakeibo", schemaSet, &IDBObserverImpl{})
+	db = idb.New("kakeibo", schemaSet, &IDBObserverImpl{})
 }
 
 func ready() {

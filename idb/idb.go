@@ -1,6 +1,6 @@
 // +build js
 
-package main
+package idb
 
 import (
 	"encoding/json"
@@ -62,7 +62,7 @@ func onError(e js.Object) {
 	print(fmt.Sprintf("%s: %s", name, msg))
 }
 
-func NewIDB(name string, schemaSet SchemaSet, observer IDBObserver) *IDB {
+func New(name string, schemaSet SchemaSet, observer IDBObserver) *IDB {
 	idb := &IDB{
 		db:        nil,  
 		schemaSet: schemaSet,
