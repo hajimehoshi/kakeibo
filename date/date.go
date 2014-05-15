@@ -13,6 +13,10 @@ func New(year int, month time.Month, day int) Date {
 	return Date{time.Date(year, month, day, 0, 0, 0, 0, time.UTC)}
 }
 
+func Today() Date {
+	return today()
+}
+
 func ParseISO8601(value string) (Date, error) {
 	const layout = "2006-01-02"
 	t, err := time.Parse(layout, value)

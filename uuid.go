@@ -25,8 +25,7 @@ func GenerateUUID() UUID {
 	id := UUID{}
 	r := rand()
 	copy(id[:], r[:])
-	const version = 4
+	id[6] = (id[6] & 0x0f) | 0x40
 	id[8] = (id[8] & 0x3f) | 0x80
-	id[6] = (id[6] & 0x0f) | (version << 4)
 	return id
 }

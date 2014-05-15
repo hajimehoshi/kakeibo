@@ -7,9 +7,9 @@ import (
 	"github.com/gopherjs/gopherjs/js"
 )
 
-func Today() Date {
-	// time.Now() doesn't work well because this needs access to the zone file.
-	// Use JavaScript's Date class instead.
+func today() Date {
+	// In JavaScript, time.Now() returns a time which locale is UTC and
+	// doesn't include the locale info. Use JavaScript's Date class instead.
 	jsToday := js.Global.Get("Date").New()
 	year := jsToday.Call("getFullYear").Int()
 	month := time.Month(jsToday.Call("getMonth").Int() + 1)
