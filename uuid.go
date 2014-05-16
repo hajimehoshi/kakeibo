@@ -14,6 +14,10 @@ func (i UUID) String() string {
 		"%x-%x-%x-%x-%x", i[0:4], i[4:6], i[6:8], i[8:10], i[10:])
 }
 
+func (i UUID) MarshalText() ([]byte, error) {
+	return []byte(i.String()), nil
+}
+
 // rand generates random byte sequence.
 func rand() [16]byte {
 	result := [16]byte{}

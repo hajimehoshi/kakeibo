@@ -1,22 +1,34 @@
 package main
 
 import (
-	"math"
+	"strconv"
 )
 
-type Meta struct {
-	ID          UUID  `json:"id"`
-	LastUpdated int64 `json:"last_updated,string"`
-	IsDeleted   bool  `json:"is_deleted"`
+type UnixTime uint64
+
+func ParseUnixTime(str string) (UnixTime, error) {
+	i, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return UnixTime(i), nil
 }
 
-const NotUpdated int64 = math.MinInt64
+func (t UnixTime) String() string {
+	return strconv.FormatUint(uint64(t), 10)
+}
+
+type Meta struct {
+	// TODO: Need user info?
+	ID          UUID     `json:"id,string"`
+	LastUpdated UnixTime `json:"last_updated,string"`
+	IsDeleted   bool     `json:"is_deleted"`
+}
 
 func NewMeta() Meta {
 	return Meta{
-		ID:          GenerateUUID(),
-		LastUpdated: NotUpdated,
-		IsDeleted:   false,
+		ID:        GenerateUUID(),
+		IsDeleted: false,
 	}
 }
 

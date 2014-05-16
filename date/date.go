@@ -33,3 +33,7 @@ func (d Date) AddDate(years, months, days int) Date {
 func (d Date) String() string {
 	return fmt.Sprintf("%04d-%02d-%02d", d.t.Year(), d.t.Month(), d.t.Day())
 }
+
+func (d Date) MarshalText() ([]byte, error) {
+	return []byte(d.String()), nil
+}

@@ -1,10 +1,9 @@
 package main
 
 import (
-	"encoding/json"
+	//"encoding/json"
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/idb"
-	"strconv"
 	"reflect"
 )
 
@@ -23,33 +22,36 @@ type ItemPrinter interface {
 }
 
 type Item struct {
-	meta    Meta        `json:"meta"`
-	date    date.Date   `json:"date"`
-	subject string      `json:"subject"`
-	amount  MoneyAmount `json:"amount"`
+	Meta    Meta        `json:"meta"`
+	Date    date.Date   `json:"date"`
+	Subject string      `json:"subject"`
+	Amount  MoneyAmount `json:"amount"`
 	printer ItemPrinter `json:"-"`
 	saver   Saver       `json:"-"`
 }
 
 func NewItem() *Item {
+	// TODO: Use cache and load from here. Don't create two instances with the same ID.
 	item := &Item{
-		meta: NewMeta(),
-		date: date.Today(),
+		Meta: NewMeta(),
+		Date: date.Today(),
 	}
 	return item
 }
 
-func (i *Item) MarshalJSON() ([]byte, error) {
+/*func (i *Item) MarshalJSON() ([]byte, error) {
 	// TODO: Use reflect
 	m := map[string]interface{}{}
-	m["id"] = i.meta.ID.String()
-	m["last_updated"] = strconv.FormatInt(i.meta.LastUpdated, 10)
-	m["is_deleted"] = i.meta.IsDeleted
+	var err error
+	m["meta"], err = json.Marshal(i.meta)
+	if err != nil {
+		return nil, err
+	}
 	m["date"] = i.date.String()
 	m["subject"] = i.subject
 	m["amount"] = int(i.amount)
 	return json.Marshal(m)
-}
+}*/
 
 func (i *Item) SetPrinter(printer ItemPrinter) {
 	i.printer = printer
@@ -61,32 +63,40 @@ func (i *Item) SetSaver(saver Saver) {
 }
 
 func (i *Item) UpdateDate(date date.Date) {
-	i.date = date
+	i.Date = date
 	i.print()
 }
 
 func (i *Item) UpdateSubject(subject string) {
-	i.subject = subject
+	i.Subject = subject
 	i.print()
 }
 
 func (i *Item) UpdateAmount(amount MoneyAmount) {
-	i.amount = amount
+	i.Amount = amount
 	i.print()
 }
 
 func (i *Item) Save() {
-	i.save()
+	i.Meta.LastUpdated = 0
 	i.print()
+	i.save()
+}
+
+func (i *Item) Destroy() {
+	meta := i.Meta
+	meta.IsDeleted = true
+	*i = Item{Meta: meta}
+	i.Save()
 }
 
 func (i *Item) print() {
 	if i.printer == nil {
 		return
 	}
-	i.printer.PrintDate(i.date)
-	i.printer.PrintSubject(i.subject)
-	i.printer.PrintMoneyAmount(i.amount)
+	i.printer.PrintDate(i.Date)
+	i.printer.PrintSubject(i.Subject)
+	i.printer.PrintMoneyAmount(i.Amount)
 }
 
 func (i *Item) save() {

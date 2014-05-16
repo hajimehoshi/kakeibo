@@ -78,11 +78,11 @@ func New(name string, schemaSet SchemaSet, observer IDBObserver) *IDB {
 				"createObjectStore",
 				schema.Name,
 				map[string]interface{}{
-					"keyPath": "id",
+					"keyPath": "meta.id",
 					"autoIncrement": false,
 				})
+			// FIXME: Create index for last_updated
 		}
-		// FIXME: Create indexes
 	})
 	req.Set("onsuccess", func(e js.Object) {
 		idb.db = e.Get("target").Get("result")
@@ -112,6 +112,7 @@ func (i *IDB) Save(value interface{}) error {
 
 	// TODO: Use JSON.stringify here?
 	valStr, err := json.Marshal(value)
+	print(string(valStr))
 	if err != nil {
 		return &InvalidValueError{err, value}
 	}
@@ -125,3 +126,5 @@ func (i *IDB) Save(value interface{}) error {
 
 	return nil
 }
+
+// TODO: Syncing with the server
