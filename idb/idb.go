@@ -64,7 +64,7 @@ func onError(e js.Object) {
 
 func New(name string, schemaSet SchemaSet, observer IDBObserver) *IDB {
 	idb := &IDB{
-		db:        nil,  
+		db:        nil,
 		schemaSet: schemaSet,
 		observer:  observer,
 	}
@@ -74,14 +74,20 @@ func New(name string, schemaSet SchemaSet, observer IDBObserver) *IDB {
 	req.Set("onupgradeneeded", func(e js.Object) {
 		db := e.Get("target").Get("result")
 		for _, schema := range idb.schemaSet {
-			db.Call(
+			store := db.Call(
 				"createObjectStore",
 				schema.Name,
 				map[string]interface{}{
-					"keyPath": "meta.id",
+					"keyPath":       "meta.id",
 					"autoIncrement": false,
 				})
-			// FIXME: Create index for last_updated
+			store.Call(
+				"createIndex",
+				"last_updated",
+				"meta.last_updated",
+				map[string]interface{}{
+					"unique": false,
+				})
 		}
 	})
 	req.Set("onsuccess", func(e js.Object) {

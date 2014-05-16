@@ -1,19 +1,25 @@
 package main
 
 import (
-	//"encoding/json"
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/idb"
 	"reflect"
 )
 
 func init() {
-	schemaSet.Add(reflect.TypeOf(&Item{}), &idb.Schema{
+	schemaSet.Add(reflect.TypeOf(&ItemData{}), &idb.Schema{
 		Name: "items",
 	})
 }
 
 type MoneyAmount int
+
+type ItemData struct {
+	Meta    Meta        `json:"meta"`
+	Date    date.Date   `json:"date"`
+	Subject string      `json:"subject"`
+	Amount  MoneyAmount `json:"amount"`
+}
 
 type ItemPrinter interface {
 	PrintDate(date date.Date)
@@ -22,36 +28,21 @@ type ItemPrinter interface {
 }
 
 type Item struct {
-	Meta    Meta        `json:"meta"`
-	Date    date.Date   `json:"date"`
-	Subject string      `json:"subject"`
-	Amount  MoneyAmount `json:"amount"`
-	printer ItemPrinter `json:"-"`
-	saver   Saver       `json:"-"`
+	data    *ItemData
+	printer ItemPrinter
+	saver   Saver
 }
 
 func NewItem() *Item {
 	// TODO: Use cache and load from here. Don't create two instances with the same ID.
 	item := &Item{
-		Meta: NewMeta(),
-		Date: date.Today(),
+		data: &ItemData{
+			Meta: NewMeta(),
+			Date: date.Today(),
+		},
 	}
 	return item
 }
-
-/*func (i *Item) MarshalJSON() ([]byte, error) {
-	// TODO: Use reflect
-	m := map[string]interface{}{}
-	var err error
-	m["meta"], err = json.Marshal(i.meta)
-	if err != nil {
-		return nil, err
-	}
-	m["date"] = i.date.String()
-	m["subject"] = i.subject
-	m["amount"] = int(i.amount)
-	return json.Marshal(m)
-}*/
 
 func (i *Item) SetPrinter(printer ItemPrinter) {
 	i.printer = printer
@@ -63,30 +54,31 @@ func (i *Item) SetSaver(saver Saver) {
 }
 
 func (i *Item) UpdateDate(date date.Date) {
-	i.Date = date
+	i.data.Date = date
 	i.print()
 }
 
 func (i *Item) UpdateSubject(subject string) {
-	i.Subject = subject
+	i.data.Subject = subject
 	i.print()
 }
 
 func (i *Item) UpdateAmount(amount MoneyAmount) {
-	i.Amount = amount
+	i.data.Amount = amount
 	i.print()
 }
 
 func (i *Item) Save() {
-	i.Meta.LastUpdated = 0
+	i.data.Meta.LastUpdated = 0
 	i.print()
 	i.save()
 }
 
 func (i *Item) Destroy() {
-	meta := i.Meta
+	meta := i.data.Meta
+	meta.LastUpdated = 0
 	meta.IsDeleted = true
-	*i = Item{Meta: meta}
+	i.data = &ItemData{Meta: meta}
 	i.Save()
 }
 
@@ -94,16 +86,16 @@ func (i *Item) print() {
 	if i.printer == nil {
 		return
 	}
-	i.printer.PrintDate(i.Date)
-	i.printer.PrintSubject(i.Subject)
-	i.printer.PrintMoneyAmount(i.Amount)
+	i.printer.PrintDate(i.data.Date)
+	i.printer.PrintSubject(i.data.Subject)
+	i.printer.PrintMoneyAmount(i.data.Amount)
 }
 
 func (i *Item) save() {
 	if i.saver == nil {
 		return
 	}
-	err := i.saver.Save(i)
+	err := i.saver.Save(i.data)
 	if err != nil {
 		print(err.Error())
 	}
