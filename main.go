@@ -12,13 +12,12 @@ var schemaSet = idb.NewSchemaSet()
 
 var db *idb.IDB
 
-type Saver interface {
-	Save(value interface{}) error
-}
-
 func printError(val interface{}) {
 	js.Global.Get("console").Call("error", val)
 }
+
+//func UpdateHTML(id UUID, key string) {
+//}
 
 type ItemForm struct {
 	item *Item
@@ -81,10 +80,13 @@ func main() {
 func ready() {
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_record")
-	item := NewItem()
+
+	items := NewItems(db, nil)
+	item := items.New()
 	printer := NewItemForm(item, form)
 	_ = printer
 
-	item.SetSaver(db)
 	item.Save()
+	// form + item
+	// table + items
 }

@@ -118,7 +118,6 @@ func (i *IDB) Save(value interface{}) error {
 
 	// TODO: Use JSON.stringify here?
 	valStr, err := json.Marshal(value)
-	print(string(valStr))
 	if err != nil {
 		return &InvalidValueError{err, value}
 	}

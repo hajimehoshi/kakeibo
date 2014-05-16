@@ -4,7 +4,7 @@ import (
 	"strconv"
 )
 
-type UnixTime uint64
+type UnixTime int64
 
 func ParseUnixTime(str string) (UnixTime, error) {
 	i, err := strconv.ParseInt(str, 10, 64)
@@ -15,7 +15,7 @@ func ParseUnixTime(str string) (UnixTime, error) {
 }
 
 func (t UnixTime) String() string {
-	return strconv.FormatUint(uint64(t), 10)
+	return strconv.FormatInt(int64(t), 10)
 }
 
 type Meta struct {
@@ -27,8 +27,7 @@ type Meta struct {
 
 func NewMeta() Meta {
 	return Meta{
-		ID:        GenerateUUID(),
-		IsDeleted: false,
+		ID: GenerateUUID(),
 	}
 }
 

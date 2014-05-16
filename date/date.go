@@ -6,11 +6,11 @@ import (
 )
 
 type Date struct {
-	t time.Time
+	unixTime int64
 }
 
 func New(year int, month time.Month, day int) Date {
-	return Date{time.Date(year, month, day, 0, 0, 0, 0, time.UTC)}
+	return Date{time.Date(year, month, day, 0, 0, 0, 0, time.UTC).Unix()}
 }
 
 func Today() Date {
@@ -23,17 +23,24 @@ func ParseISO8601(value string) (Date, error) {
 	if err != nil {
 		return Date{}, err
 	}
-	return Date{t}, err
+	return Date{t.Unix()}, err
 }
 
 func (d Date) AddDate(years, months, days int) Date {
-	return Date{d.t.AddDate(years, months, days)}
+	t := time.Unix(d.unixTime, 0)
+	return Date{t.AddDate(years, months, days).Unix()}
 }
 
 func (d Date) String() string {
-	return fmt.Sprintf("%04d-%02d-%02d", d.t.Year(), d.t.Month(), d.t.Day())
+	t := time.Unix(d.unixTime, 0)
+	return fmt.Sprintf("%04d-%02d-%02d", t.Year(), t.Month(), t.Day())
 }
 
 func (d Date) MarshalText() ([]byte, error) {
 	return []byte(d.String()), nil
+}
+
+func (d *Date) UnmarshalText(text []byte) (err error) {
+	*d, err = ParseISO8601(string(text))
+	return
 }

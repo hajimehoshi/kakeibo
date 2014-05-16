@@ -12,6 +12,14 @@ func init() {
 	})
 }
 
+type Saver interface {
+	Save(interface{}) error
+}
+
+type Loader interface {
+	Load(id UUID) interface{}
+}
+
 type MoneyAmount int
 
 type ItemData struct {
@@ -33,13 +41,15 @@ type Item struct {
 	saver   Saver
 }
 
-func NewItem() *Item {
-	// TODO: Use cache and load from here. Don't create two instances with the same ID.
+func NewItem(saver Saver) *Item {
+	// TODO: Use cache and load from here. Don't create two instances with
+	// the same ID.
 	item := &Item{
 		data: &ItemData{
 			Meta: NewMeta(),
 			Date: date.Today(),
 		},
+		saver: saver,
 	}
 	return item
 }
@@ -47,10 +57,6 @@ func NewItem() *Item {
 func (i *Item) SetPrinter(printer ItemPrinter) {
 	i.printer = printer
 	i.print()
-}
-
-func (i *Item) SetSaver(saver Saver) {
-	i.saver = saver
 }
 
 func (i *Item) UpdateDate(date date.Date) {
@@ -99,4 +105,45 @@ func (i *Item) save() {
 	if err != nil {
 		print(err.Error())
 	}
+}
+
+type Items struct {
+	// TODO: Revert the key to UUID
+	items  map[string]*Item
+	saver  Saver
+	loader Loader
+}
+
+func NewItems(saver Saver, loader Loader) *Items {
+	return &Items{
+		items:  map[string]*Item{},
+		saver:  saver,
+		loader: loader,
+	}
+}
+
+func (i *Items) New() *Item {
+	item := NewItem(i.saver)
+	i.items[item.data.Meta.ID.String()] = item
+	return item
+}
+
+func (i *Items) Get(id UUID) *Item {
+	if item, ok := i.items[id.String()]; ok {
+		return item
+	}
+	data, ok := i.loader.Load(id).(*ItemData)
+	if !ok {
+		return nil
+	}
+	if data.Meta.ID != id {
+		panic("invalid data")
+		return nil
+	}
+	item := &Item{
+		data:  data,
+		saver: i.saver,
+	}
+	i.items[id.String()] = item
+	return item
 }
