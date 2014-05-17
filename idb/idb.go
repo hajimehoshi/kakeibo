@@ -84,6 +84,7 @@ func New(name string, schemaSet SchemaSet) *IDB {
 				map[string]interface{}{
 					"unique": false,
 				})
+			// TODO: create index for other columns
 		}
 	})
 	req.Set("onsuccess", func(e js.Object) {
@@ -121,7 +122,6 @@ func (i *IDB) Save(value interface{}) error {
 	s := t.Call("objectStore", schema.Name)
 
 	valStr, err := json.Marshal(value)
-	print(string(valStr))
 	if err != nil {
 		return &InvalidValueError{err, value}
 	}

@@ -22,6 +22,7 @@ type Storage interface {
 
 type MoneyAmount int
 
+// FIXME: What if another user tries to access the storage?
 type ItemData struct {
 	Meta    Meta        `json:"meta"`
 	Date    date.Date   `json:"date"`

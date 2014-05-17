@@ -57,6 +57,9 @@ func (p *HTMLView) PrintItem(data ItemData) {
 		printValueAt(e, "date", data.Date.String())
 		printValueAt(e, "subject", data.Subject)
 		printValueAt(e, "amount", strconv.Itoa(int(data.Amount)))
+		if data.Meta.IsDeleted {
+			// FIXME: implement
+		}
 	}
 }
 

@@ -20,7 +20,6 @@ func (t UnixTime) String() string {
 }
 
 type Meta struct {
-	// TODO: Need user info?
 	ID          uuid.UUID `json:"id"`
 	LastUpdated UnixTime  `json:"last_updated,string"`
 	IsDeleted   bool      `json:"is_deleted"`
