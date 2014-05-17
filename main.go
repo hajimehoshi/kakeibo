@@ -3,90 +3,111 @@
 package main
 
 import (
+	"errors"
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/idb"
+	"github.com/hajimehoshi/kakeibo/uuid"
 )
 
 var schemaSet = idb.NewSchemaSet()
 
-var db *idb.IDB
+var items *Items
 
 func printError(val interface{}) {
 	js.Global.Get("console").Call("error", val)
 }
 
-//func UpdateHTML(id UUID, key string) {
-//}
-
-type ItemForm struct {
-	item *Item
-	form js.Object
+func getIDFromElement(e js.Object) (uuid.UUID, error) {
+	for {
+		attr := e.Get("dataset").Get(datasetAttrID)
+		if !attr.IsUndefined() {
+			str := attr.Str()
+			id, err := uuid.ParseString(str)
+			if err != nil {
+				return uuid.UUID{}, err
+			}
+			return id, nil
+		}
+		e = e.Get("parentNode")
+		if e.IsNull() || e.IsUndefined() {
+			break
+		}
+	}
+	return uuid.UUID{}, errors.New("not found")
 }
 
-func NewItemForm(item *Item, form js.Object) *ItemForm {
-	f := &ItemForm{item, form}
-	item.SetPrinter(f)
-	f.addEventHandlers()
-	return f
-}
-
-func (f *ItemForm) addEventHandlers() {
-	inputDate := f.form.Call("querySelector", "input[name=date]")
-	inputDate.Call("addEventListener", "input", func() {
-		dateStr := inputDate.Get("value").Str()
-		date, err := date.ParseISO8601(dateStr)
+func addEventListeners(form js.Object) {
+	inputDate := form.Call("querySelector", "input[name=date]")
+	inputDate.Call("addEventListener", "change", func(e js.Object) {
+		id, err := getIDFromElement(e.Get("target"))
 		if err != nil {
 			printError(err.Error())
 			return
 		}
-		f.item.UpdateDate(date)
+		item := items.Get(id)
+
+		dateStr := e.Get("target").Get("value").Str()
+		d, err := date.ParseISO8601(dateStr)
+		if err != nil {
+			printError(err.Error())
+			return
+		}
+		item.UpdateDate(d)
 	})
-	inputSubject := f.form.Call("querySelector", "input[name=subject]")
-	inputSubject.Call("addEventListener", "input", func() {
-		print("hoge")
+	inputSubject := form.Call("querySelector", "input[name=subject]")
+	inputSubject.Call("addEventListener", "change", func(e js.Object) {
+		id, err := getIDFromElement(e.Get("target"))
+		if err != nil {
+			printError(err.Error())
+			return
+		}
+		item := items.Get(id)
+
+		subject := e.Get("target").Get("value").Str()
+		item.UpdateSubject(subject)
 	})
-	inputMoneyAmount := f.form.Call("querySelector", "input[name=money_amount]")
-	inputMoneyAmount.Call("addEventListener", "input", func() {
-		print("hoge")
+	inputMoneyAmount := form.Call("querySelector", "input[name=amount]")
+	inputMoneyAmount.Call("addEventListener", "change", func(e js.Object) {
+		id, err := getIDFromElement(e.Get("target"))
+		if err != nil {
+			printError(err.Error())
+			return
+		}
+		item := items.Get(id)
+
+		amount := e.Get("target").Get("value").Int()
+		item.UpdateAmount(MoneyAmount(amount))
 	})
-}
-
-func (f *ItemForm) PrintDate(date date.Date) {
-	input := f.form.Call("querySelector", "input[name=date]")
-	input.Set("value", date.String())
-}
-
-func (f *ItemForm) PrintSubject(subject string) {
-	input := f.form.Call("querySelector", "input[name=subject]")
-	input.Set("value", subject)
-}
-
-func (f *ItemForm) PrintMoneyAmount(amount MoneyAmount) {
-	input := f.form.Call("querySelector", "input[name=money_amount]")
-	input.Set("value", amount)
-}
-
-type IDBObserverImpl struct {}
-
-func (t *IDBObserverImpl) OnReady(d *idb.IDB) {
-	ready()
 }
 
 func main() {
-	db = idb.New("kakeibo", schemaSet, &IDBObserverImpl{})
-}
+	var view = &HTMLView{}
+	db := idb.New("kakeibo", schemaSet)
 
-func ready() {
-	document := js.Global.Get("document")
-	form := document.Call("getElementById", "form_record")
-
-	items := NewItems(db, nil)
+	items = NewItems(view, db)
 	item := items.New()
-	printer := NewItemForm(item, form)
-	_ = printer
+	document := js.Global.Get("document")
+	form := document.Call("getElementById", "form_item")
+	addEventListeners(form)
+	form.Set("onsubmit", func(e js.Object) {
+		e.Call("preventDefault")
+		form := e.Get("target")
+		id, err := getIDFromElement(form)
+		if err != nil {
+			printError(err.Error())
+			return
+		}
+		item := items.Get(id)
+		// TODO: validation here?
+		item.Save()
+		view.AddIDToItemTable(item.ID())
+		items.Get(id).Print()
 
-	item.Save()
-	// form + item
-	// table + items
+		item = items.New()
+		form.Get("dataset").Set(datasetAttrID, item.ID().String())
+		item.Print()
+	})
+	form.Get("dataset").Set(datasetAttrID, item.ID().String())
+	item.Print()
 }

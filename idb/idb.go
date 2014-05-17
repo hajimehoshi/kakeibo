@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gopherjs/gopherjs/js"
+	"github.com/hajimehoshi/kakeibo/uuid"
 	"reflect"
 )
 
@@ -14,7 +15,7 @@ type SchemaNotFoundError struct {
 }
 
 func (e *SchemaNotFoundError) Error() string {
-	return "schema not found"
+	return "idb: schema not found"
 }
 
 type InvalidValueError struct {
@@ -23,7 +24,7 @@ type InvalidValueError struct {
 }
 
 func (e *InvalidValueError) Error() string {
-	return "invalid value"
+	return "idb: invalid value"
 }
 
 type Schema struct {
@@ -47,12 +48,7 @@ func (s SchemaSet) GetFor(value interface{}) *Schema {
 type IDB struct {
 	db        js.Object
 	schemaSet SchemaSet
-	observer  IDBObserver
-}
-
-type IDBObserver interface {
-	OnReady(d *IDB)
-	//OnValueUpdated()
+	buffer    []func()
 }
 
 func onError(e js.Object) {
@@ -62,11 +58,11 @@ func onError(e js.Object) {
 	print(fmt.Sprintf("%s: %s", name, msg))
 }
 
-func New(name string, schemaSet SchemaSet, observer IDBObserver) *IDB {
+func New(name string, schemaSet SchemaSet) *IDB {
 	idb := &IDB{
 		db:        nil,
 		schemaSet: schemaSet,
-		observer:  observer,
+		buffer:    []func(){},
 	}
 
 	const version = 1
@@ -93,20 +89,28 @@ func New(name string, schemaSet SchemaSet, observer IDBObserver) *IDB {
 	req.Set("onsuccess", func(e js.Object) {
 		idb.db = e.Get("target").Get("result")
 		idb.db.Set("onerror", onError)
-		if idb.observer != nil {
-			idb.observer.OnReady(idb)
+		for _, f := range idb.buffer {
+			f()
 		}
+		idb.buffer = []func(){}
 	})
 	req.Set("onerror", onError)
 
 	return idb
 }
 
-func (i *IDB) IsReady() bool {
+func (i *IDB) isReady() bool {
 	return i.db != nil
 }
 
 func (i *IDB) Save(value interface{}) error {
+	if !i.isReady() {
+		i.buffer = append(i.buffer, func() {
+			i.Save(value)
+		})
+		return nil
+	}
+
 	schema := i.schemaSet.GetFor(value)
 	if schema == nil {
 		return &SchemaNotFoundError{value}
@@ -116,16 +120,60 @@ func (i *IDB) Save(value interface{}) error {
 	t := db.Call("transaction", schema.Name, "readwrite")
 	s := t.Call("objectStore", schema.Name)
 
-	// TODO: Use JSON.stringify here?
 	valStr, err := json.Marshal(value)
 	if err != nil {
 		return &InvalidValueError{err, value}
 	}
 	j := js.Global.Get("JSON").Call("parse", string(valStr))
 	req := s.Call("put", j)
-	req.Set("onsuccess", func() {
-		print("OK!")
-		// FIXME: call callback
+	req.Set("onerror", onError)
+
+	return nil
+}
+
+func toJSONString(v js.Object) string {
+	return js.Global.Get("JSON").Call("stringify", v).Str()
+}
+
+func (i *IDB) Load(name string, id uuid.UUID, callback func(val string)) error {
+	if !i.isReady() {
+		i.buffer = append(i.buffer, func() {
+			i.Load(name, id, callback)
+		})
+		return nil
+	}
+
+	db := i.db
+	t := db.Call("transaction", name, "readonly")
+	s := t.Call("objectStore", name)
+	req := s.Call("get", id.String())
+	req.Set("onsuccess", func(e js.Object) {
+		result := e.Get("target").Get("result")
+		callback(toJSONString(result))
+	})
+	req.Set("onerror", onError)
+	return nil
+}
+
+func (i *IDB) LoadAll(name string, callback func(val string)) error {
+	if !i.isReady() {
+		i.buffer = append(i.buffer, func() {
+			i.LoadAll(name, callback)
+		})
+		return nil
+	}
+
+	db := i.db
+	t := db.Call("transaction", name, "readonly")
+	s := t.Call("objectStore", name)
+	req := s.Call("openCursor")
+	req.Set("onsuccess", func(e js.Object) {
+		cursor := e.Get("target").Get("result")
+		if !cursor.IsNull() {
+			value := cursor.Get("value")
+			callback(toJSONString(value))
+			cursor.Call("continue")
+		}
 	})
 	req.Set("onerror", onError)
 

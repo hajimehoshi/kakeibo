@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/hajimehoshi/kakeibo/uuid"
 	"strconv"
 )
 
@@ -20,14 +21,14 @@ func (t UnixTime) String() string {
 
 type Meta struct {
 	// TODO: Need user info?
-	ID          UUID     `json:"id,string"`
-	LastUpdated UnixTime `json:"last_updated,string"`
-	IsDeleted   bool     `json:"is_deleted"`
+	ID          uuid.UUID `json:"id,string`
+	LastUpdated UnixTime  `json:"last_updated,string"`
+	IsDeleted   bool      `json:"is_deleted"`
 }
 
 func NewMeta() Meta {
 	return Meta{
-		ID: GenerateUUID(),
+		ID: uuid.Generate(),
 	}
 }
 

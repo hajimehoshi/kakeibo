@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/idb"
+	"github.com/hajimehoshi/kakeibo/uuid"
 	"reflect"
 )
 
@@ -12,12 +14,10 @@ func init() {
 	})
 }
 
-type Saver interface {
+type Storage interface {
 	Save(interface{}) error
-}
-
-type Loader interface {
-	Load(id UUID) interface{}
+	Load(name string, id uuid.UUID, callback func(val string)) error
+	LoadAll(name string, callback func(val string)) error
 }
 
 type MoneyAmount int
@@ -29,54 +29,49 @@ type ItemData struct {
 	Amount  MoneyAmount `json:"amount"`
 }
 
-type ItemPrinter interface {
-	PrintDate(date date.Date)
-	PrintSubject(subject string)
-	PrintMoneyAmount(amount MoneyAmount)
+type ItemView interface {
+	PrintItem(data ItemData)
 }
 
 type Item struct {
 	data    *ItemData
-	printer ItemPrinter
-	saver   Saver
+	view    ItemView
+	storage Storage
 }
 
-func NewItem(saver Saver) *Item {
-	// TODO: Use cache and load from here. Don't create two instances with
-	// the same ID.
-	item := &Item{
+func NewItem(view ItemView, storage Storage) *Item {
+	return &Item{
 		data: &ItemData{
 			Meta: NewMeta(),
 			Date: date.Today(),
 		},
-		saver: saver,
+		view:    view,
+		storage: storage,
 	}
-	return item
 }
 
-func (i *Item) SetPrinter(printer ItemPrinter) {
-	i.printer = printer
-	i.print()
+func (i *Item) ID() uuid.UUID {
+	return i.data.Meta.ID
 }
 
 func (i *Item) UpdateDate(date date.Date) {
 	i.data.Date = date
-	i.print()
+	i.Print()
 }
 
 func (i *Item) UpdateSubject(subject string) {
 	i.data.Subject = subject
-	i.print()
+	i.Print()
 }
 
 func (i *Item) UpdateAmount(amount MoneyAmount) {
 	i.data.Amount = amount
-	i.print()
+	i.Print()
 }
 
 func (i *Item) Save() {
 	i.data.Meta.LastUpdated = 0
-	i.print()
+	i.Print()
 	i.save()
 }
 
@@ -88,62 +83,79 @@ func (i *Item) Destroy() {
 	i.Save()
 }
 
-func (i *Item) print() {
-	if i.printer == nil {
+func (i *Item) Print() {
+	if i.view == nil {
 		return
 	}
-	i.printer.PrintDate(i.data.Date)
-	i.printer.PrintSubject(i.data.Subject)
-	i.printer.PrintMoneyAmount(i.data.Amount)
+	i.view.PrintItem(*i.data)
 }
 
 func (i *Item) save() {
-	if i.saver == nil {
+	if i.storage == nil {
 		return
 	}
-	err := i.saver.Save(i.data)
+	err := i.storage.Save(i.data)
 	if err != nil {
 		print(err.Error())
 	}
 }
 
 type Items struct {
-	// TODO: Revert the key to UUID
-	items  map[string]*Item
-	saver  Saver
-	loader Loader
+	items   map[uuid.UUID]*Item
+	view    ItemView
+	storage Storage
 }
 
-func NewItems(saver Saver, loader Loader) *Items {
-	return &Items{
-		items:  map[string]*Item{},
-		saver:  saver,
-		loader: loader,
+func NewItems(view ItemView, storage Storage) *Items {
+	items := &Items{
+		items:   map[uuid.UUID]*Item{},
+		view:    view,
+		storage: storage,
 	}
+	storage.LoadAll("items", items.onStorageItemLoaded)
+	return items
+}
+
+func (i *Items) onStorageItemLoaded(val string) {
+	var d ItemData
+	if err := json.Unmarshal([]byte(val), &d); err != nil {
+		print(err.Error())
+		return
+	}
+	id := d.Meta.ID
+	if item, ok := i.items[id]; ok {
+		*item.data = d
+		item.Print()
+		return
+	}
+	item := &Item{
+		data:    &d,
+		view:    i.view,
+		storage: i.storage,
+	}
+	i.items[id] = item
+	item.Print()
 }
 
 func (i *Items) New() *Item {
-	item := NewItem(i.saver)
-	i.items[item.data.Meta.ID.String()] = item
+	item := NewItem(i.view, i.storage)
+	i.items[item.data.Meta.ID] = item
 	return item
 }
 
-func (i *Items) Get(id UUID) *Item {
-	if item, ok := i.items[id.String()]; ok {
+func (i *Items) Get(id uuid.UUID) *Item {
+	if item, ok := i.items[id]; ok {
 		return item
 	}
-	data, ok := i.loader.Load(id).(*ItemData)
-	if !ok {
-		return nil
+	// TODO: Is this necessary?
+	i.storage.Load("items", id, i.onStorageItemLoaded)
+	return nil
+}
+
+func (i *Items) All() []*Item {
+	result := []*Item{}
+	for _, item := range i.items {
+		result = append(result, item)
 	}
-	if data.Meta.ID != id {
-		panic("invalid data")
-		return nil
-	}
-	item := &Item{
-		data:  data,
-		saver: i.saver,
-	}
-	i.items[id.String()] = item
-	return item
+	return result
 }
