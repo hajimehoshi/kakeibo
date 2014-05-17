@@ -121,6 +121,7 @@ func (i *IDB) Save(value interface{}) error {
 	s := t.Call("objectStore", schema.Name)
 
 	valStr, err := json.Marshal(value)
+	print(string(valStr))
 	if err != nil {
 		return &InvalidValueError{err, value}
 	}
@@ -155,7 +156,7 @@ func (i *IDB) Load(name string, id uuid.UUID, callback func(val string)) error {
 	return nil
 }
 
-func (i *IDB) LoadAll(name string, callback func(val string)) error {
+func (i *IDB) LoadAll(name string, callback func(val []string)) error {
 	if !i.isReady() {
 		i.buffer = append(i.buffer, func() {
 			i.LoadAll(name, callback)
@@ -167,13 +168,16 @@ func (i *IDB) LoadAll(name string, callback func(val string)) error {
 	t := db.Call("transaction", name, "readonly")
 	s := t.Call("objectStore", name)
 	req := s.Call("openCursor")
+	values := []string{}
 	req.Set("onsuccess", func(e js.Object) {
 		cursor := e.Get("target").Get("result")
 		if !cursor.IsNull() {
 			value := cursor.Get("value")
-			callback(toJSONString(value))
+			values = append(values, toJSONString(value))
 			cursor.Call("continue")
+			return
 		}
+		callback(values)
 	})
 	req.Set("onerror", onError)
 

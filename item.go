@@ -17,7 +17,7 @@ func init() {
 type Storage interface {
 	Save(interface{}) error
 	Load(name string, id uuid.UUID, callback func(val string)) error
-	LoadAll(name string, callback func(val string)) error
+	LoadAll(name string, callback func(val []string)) error
 }
 
 type MoneyAmount int
@@ -31,6 +31,7 @@ type ItemData struct {
 
 type ItemView interface {
 	PrintItem(data ItemData)
+	SetIDsToItemTable(ids []uuid.UUID)
 }
 
 type Item struct {
@@ -112,24 +113,46 @@ func NewItems(view ItemView, storage Storage) *Items {
 		view:    view,
 		storage: storage,
 	}
-	storage.LoadAll("items", items.onStorageItemLoaded)
+	items.storage.LoadAll("items", items.onStorageItemsLoaded)
 	return items
 }
 
-func (i *Items) onStorageItemLoaded(val string) {
+func toItemData(val string) *ItemData {
 	var d ItemData
 	if err := json.Unmarshal([]byte(val), &d); err != nil {
 		print(err.Error())
-		return
+		return nil
 	}
+	return &d
+}
+
+func (i *Items) onStorageItemsLoaded(vals []string) {
+	ids := []uuid.UUID{}
+	for _, v := range vals {
+		d := toItemData(v)
+		i.onItemLoaded(d)
+		ids = append(ids, d.Meta.ID)
+	}
+	i.view.SetIDsToItemTable(ids)
+	for _, id := range ids {
+		item := i.items[id]
+		item.Print()
+	}
+}
+
+func (i *Items) onStorageItemLoaded(val string) {
+	i.onItemLoaded(toItemData(val))
+}
+
+func (i *Items) onItemLoaded(d *ItemData) {
 	id := d.Meta.ID
 	if item, ok := i.items[id]; ok {
-		*item.data = d
+		*item.data = *d
 		item.Print()
 		return
 	}
 	item := &Item{
-		data:    &d,
+		data:    d,
 		view:    i.view,
 		storage: i.storage,
 	}
