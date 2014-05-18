@@ -177,14 +177,19 @@ func (i *IDB) LoadAll(name string, callback func(val []string)) error {
 	return nil
 }
 
-func (i *IDB) Sync(name string) {
+func (i *IDB) Sync() {
 	if !i.isReady() {
 		i.queue = append(i.queue, func() {
-			i.Sync(name)
+			i.Sync()
 		})
 		return
 	}
+	for _, s := range i.schemaSet {
+		i.sync(s.Name)
+	}
+}
 
+func (i *IDB) sync(name string) {
 	maxLastUpdated := float64(0)
 
 	db := i.db
@@ -204,7 +209,7 @@ func (i *IDB) Sync(name string) {
 		req.Set("onsuccess", func(e js.Object) {
 			cursor := e.Get("target").Get("result")
 			if cursor.IsNull() {
-				i.sync(name, maxLastUpdated, values)
+				i.sync2(name, maxLastUpdated, values)
 				return
 			}
 			value := cursor.Get("value")
@@ -217,17 +222,16 @@ func (i *IDB) Sync(name string) {
 	req.Set("onerror", onError)
 }
 
-func (i *IDB) sync(name string, maxLastUpdated float64, values []js.Object) {
+func (i *IDB) sync2(name string, maxLastUpdated float64, values []js.Object) {
 	req := js.Global.Get("XMLHttpRequest").New()
 	req.Call("open", "POST", "/sync", true)
 	req.Set("onload", func(e js.Object) {
 		xhr := e.Get("target")
 		if xhr.Get("status").Int() != 200 {
-			// FIXME: implement this
-			print("error!")
+			print(xhr.Get("responseText").Str())
 			return
 		}
-		text := xhr.Get("responseText")
+		text := xhr.Get("responseText").Str()
 		print(text)
 	})
 	req.Set("onerror", func(e js.Object) {

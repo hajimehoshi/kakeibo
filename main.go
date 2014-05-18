@@ -18,7 +18,7 @@ func init() {
 	})
 }
 
-var items *models.Items
+var items *Items
 
 func printError(val interface{}) {
 	js.Global.Get("console").Call("error", val)
@@ -84,9 +84,9 @@ func main() {
 
 	var view = &HTMLView{}
 	db := idb.New(dbName, schemaSet)
+	db.Sync()
 
-	items = models.NewItems(view, db)
-	items.Sync()
+	items = NewItems(view, db)
 	item := items.New()
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")

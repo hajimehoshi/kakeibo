@@ -1,12 +1,9 @@
-// +build js
-
 package uuid
 
 import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/gopherjs/gopherjs/js"
 	"regexp"
 	"strings"
 )
@@ -43,13 +40,6 @@ func (i UUID) MarshalText() ([]byte, error) {
 func (i *UUID) UnmarshalText(text []byte) (err error) {
 	*i, err = ParseString(string(text))
 	return
-}
-
-// rand generates random byte sequence.
-func rand() [16]byte {
-	result := [16]byte{}
-	js.Global.Get("crypto").Call("getRandomValues", result[:])
-	return result
 }
 
 func Generate() UUID {
