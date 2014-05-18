@@ -1,4 +1,5 @@
 *~
 *.js.map
 app.yaml
+index.yaml
 app/public/scripts/main.js
