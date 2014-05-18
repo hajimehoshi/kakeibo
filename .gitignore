@@ -1,3 +1,4 @@
 *~
 *.js.map
+app.yaml
 app/public/scripts/main.js
