@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gopherjs/gopherjs/js"
+	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
 	"strconv"
 )
@@ -80,7 +81,7 @@ func printValueAt(e js.Object, name string, value string) {
 
 type HTMLView struct{}
 
-func (p *HTMLView) PrintItem(data ItemData) {
+func (p *HTMLView) PrintItem(data models.ItemData) {
 	document := js.Global.Get("document")
 	id := data.Meta.ID
 	// TODO: Escape

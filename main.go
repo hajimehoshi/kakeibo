@@ -6,11 +6,19 @@ import (
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/idb"
+	"github.com/hajimehoshi/kakeibo/models"
+	"reflect"
 )
 
 var schemaSet = idb.NewSchemaSet()
 
-var items *Items
+func init() {
+	schemaSet.Add(reflect.TypeOf(&models.ItemData{}), &idb.Schema{
+		Name: "items",
+	})
+}
+
+var items *models.Items
 
 func printError(val interface{}) {
 	js.Global.Get("console").Call("error", val)
@@ -56,7 +64,7 @@ func addEventListeners(form js.Object) {
 		item := items.Get(id)
 
 		amount := e.Get("target").Get("value").Int()
-		item.UpdateAmount(MoneyAmount(amount))
+		item.UpdateAmount(models.MoneyAmount(amount))
 	})
 }
 
@@ -77,7 +85,7 @@ func main() {
 	var view = &HTMLView{}
 	db := idb.New(dbName, schemaSet)
 
-	items = NewItems(view, db)
+	items = models.NewItems(view, db)
 	items.Sync()
 	item := items.New()
 	document := js.Global.Get("document")

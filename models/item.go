@@ -1,18 +1,10 @@
-package main
+package models
 
 import (
 	"encoding/json"
 	"github.com/hajimehoshi/kakeibo/date"
-	"github.com/hajimehoshi/kakeibo/idb"
 	"github.com/hajimehoshi/kakeibo/uuid"
-	"reflect"
 )
-
-func init() {
-	schemaSet.Add(reflect.TypeOf(&ItemData{}), &idb.Schema{
-		Name: "items",
-	})
-}
 
 type Storage interface {
 	Save(interface{}) error

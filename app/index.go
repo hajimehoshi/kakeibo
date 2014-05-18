@@ -48,25 +48,29 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 	// {JSON}
 	//
 	// response:
-	// {
-	//   type: "items",
-	//   last_updated: "12345",
-	//   items: [
-	//     {JSON + last_updated},
-	//     {JSON + last_updated}
-	//   ]
-	// }
+	// {type: "items", last_updated: "67890"}
+	// {JSON + last_updated}
+	// {JSON + last_updated}
 	// 
 	// The client accepts the response and update all data. Then, the items
 	// 'last_updated = 0' don't exist.
 	dec := json.NewDecoder(r.Body)
+	vals := []map[string]interface{}{}
 	for {
 		val := map[string]interface{}{}
 		if err := dec.Decode(&val); err == io.EOF {
 			break
 		} else if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
-		fmt.Fprintf(w, "%+v\n", val)
+		vals = append(vals, val)
 	}
+
+	// Check the data
+	// Add user
+	// Update db
+	// Get data whose user is the current user
+	// Return them
+	fmt.Fprintf(w, "%+v\n", vals)
 }
