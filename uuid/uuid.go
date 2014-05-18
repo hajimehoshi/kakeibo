@@ -1,36 +1,36 @@
 package uuid
 
 import (
-	"encoding/hex"
+	//"encoding/hex"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 )
 
-type UUID [16]byte
+const length = 16
+
+const Zero = UUID("00000000-0000-4000-8000-000000000000")
+
+// Google App Engine's datastore doesn't accept a fixed-size array. Use string
+// instead...
+type UUID string
 
 func ParseString(str string) (UUID, error) {
 	const pattern = "^([0-9a-fA-F]{8})-([0-9a-fA-F]{4})-" +
 		"(4[0-9a-fA-F]{3})-([89abAB][0-9a-fA-F]{3})-([0-9a-fA-F]{12})$"
-	re := regexp.MustCompile(pattern)
-
-	match := re.FindStringSubmatch(str)
-	if match == nil {
-		return UUID{}, errors.New("uuid: invalid UUID string")
-	}
-	bytes, err := hex.DecodeString(strings.Join(match[1:6], ""))
+	m, err := regexp.MatchString(pattern, str)
 	if err != nil {
-		return UUID{}, err
+		return Zero, err
 	}
-	id := UUID{}
-	copy(id[:], bytes)
-	return id, nil
+	if !m {
+		return Zero, errors.New("uuid: invalid UUID (v4) string")
+	}
+	return UUID(strings.ToLower(str)), nil
 }
 
 func (i UUID) String() string {
-	return fmt.Sprintf(
-		"%x-%x-%x-%x-%x", i[0:4], i[4:6], i[6:8], i[8:10], i[10:])
+	return string(i)
 }
 
 func (i UUID) MarshalText() ([]byte, error) {
@@ -43,10 +43,12 @@ func (i *UUID) UnmarshalText(text []byte) (err error) {
 }
 
 func Generate() UUID {
-	id := UUID{}
+	id := [16]byte{}
 	r := rand()
 	copy(id[:], r[:])
 	id[6] = (id[6] & 0x0f) | 0x40
 	id[8] = (id[8] & 0x3f) | 0x80
-	return id
+	str := fmt.Sprintf(
+		"%x-%x-%x-%x-%x", id[0:4], id[4:6], id[6:8], id[8:10], id[10:])
+	return UUID(str)
 }

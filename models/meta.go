@@ -7,7 +7,7 @@ import (
 type UnixTime float64
 
 type Meta struct {
-	ID          uuid.UUID `json:"id"`
+	ID          uuid.UUID `json:"id" datastore:",string"`
 	LastUpdated UnixTime  `json:"last_updated"`
 	IsDeleted   bool      `json:"is_deleted"`
 	UserID      string    `json:"-"`

@@ -13,9 +13,13 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
-const salt = "kakeibo"
+const (
+	kindItems = "Items"
+)
+
 var tmpl *template.Template
 
 func init() {
@@ -66,6 +70,7 @@ func lines(r io.Reader) ([]string, error) {
 
 func handleSync(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
+	u := user.Current(c)
 
 	// request:
 	// {type: "items", last_updated: 12345}
@@ -107,13 +112,23 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lastUpdated := models.UnixTime(meta["last_updated"].(float64))
-	
+	now := models.UnixTime(time.Now().Unix())
+	if now < lastUpdated {
+		http.Error(w, "last_updated is too new", http.StatusBadRequest)
+		return
+	}
+
+	resItems := map[uuid.UUID]*models.ItemData{}
+
 	if err := datastore.RunInTransaction(c, func(c appengine.Context) error {
+		const keyStringID = "items-foo"
+
 		serverItems := map[uuid.UUID]*models.ItemData{}
-		// FIXME: Check user
-		key := datastore.NewKey(c, "Items", "items", 0, nil)
-		q := datastore.NewQuery("Items")
-		q = q.Ancestor(key).Filter("Meta.LastUpdated >=", lastUpdated)
+		key := datastore.NewKey(c, kindItems, keyStringID, 0, nil)
+		q := datastore.NewQuery(kindItems)
+		q = q.Ancestor(key)
+		q = q.Filter("Meta.LastUpdated >=", lastUpdated)
+		q = q.Filter("Meta.UserID =", u.ID)
 		t := q.Run(c)
 		for {
 			var d models.ItemData
@@ -127,13 +142,29 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 			serverItems[d.Meta.ID] = &d
 		}
 
+		serverNewItems := []*models.ItemData{}
+
+		for id, d := range serverItems {
+			resItems[id] = d
+		}
 		for id, d := range reqItems {
-			if d2, ok := serverItems[id]; ok {
-				if lastUpdated <= d2.Meta.LastUpdated {
-					print(d)
-					print(d2)
-				}
+			if _, ok := serverItems[id]; ok {
+				continue
 			}
+			// The requested data is new.
+			d.Meta.LastUpdated = now
+			d.Meta.UserID = u.ID
+			serverNewItems = append(serverNewItems, d)
+			resItems[id] = d
+		}
+
+		keys := []*datastore.Key{}
+		for _, d := range serverNewItems {
+			strID := d.Meta.ID.String()
+			keys = append(keys, datastore.NewKey(c, kindItems, strID, 0, nil))
+		}
+		if _, err := datastore.PutMulti(c, keys, serverNewItems); err != nil {
+			return err
 		}
 
 		return nil
@@ -141,7 +172,7 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	
+
 	//if vals
 
 	//d := []*models.ItemData
