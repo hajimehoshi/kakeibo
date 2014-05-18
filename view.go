@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/hajimehoshi/kakeibo/uuid"
@@ -12,6 +13,39 @@ const (
 	datasetAttrID = "id"
 	datasetAttrKey = "key"
 )
+
+func getIDElement(e js.Object) js.Object {
+	for {
+		attr := e.Get("dataset").Get(datasetAttrID)
+		if !attr.IsUndefined() {
+			return e
+			/*str := attr.Str()
+			id, err := uuid.ParseString(str)
+			if err != nil {
+				return uuid.UUID{}, err
+			}
+			return id, nil*/
+		}
+		e = e.Get("parentNode")
+		if e.IsNull() || e.IsUndefined() {
+			break
+		}
+	}
+	return nil
+}
+
+func getIDFromElement(e js.Object) (uuid.UUID, error) {
+	e2 := getIDElement(e)
+	if e2 == nil {
+		return uuid.UUID{}, errors.New("view: element not found")
+	}
+	str := e2.Get("dataset").Get(datasetAttrID).Str()
+	id, err := uuid.ParseString(str)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	return id, nil
+}
 
 func printValueAt(e js.Object, name string, value string) {
 	targets := []js.Object{}
@@ -57,9 +91,6 @@ func (p *HTMLView) PrintItem(data ItemData) {
 		printValueAt(e, "date", data.Date.String())
 		printValueAt(e, "subject", data.Subject)
 		printValueAt(e, "amount", strconv.Itoa(int(data.Amount)))
-		if data.Meta.IsDeleted {
-			// FIXME: implement
-		}
 	}
 }
 
@@ -70,6 +101,7 @@ func (p *HTMLView) SetIDsToItemTable(ids []uuid.UUID) {
 	for tbody.Call("hasChildNodes").Bool() {
 		tbody.Call("removeChild", tbody.Get("lastChild"))
 	}
+	// TODO: Sort here!
 	for _, id := range ids {
 		p.AddIDToItemTable(id)
 	}
@@ -108,6 +140,30 @@ func (p *HTMLView) AddIDToItemTable(id uuid.UUID) {
 	td.Get("dataset").Set(datasetAttrKey, "amount")
 	tr.Call("appendChild", td)
 
+	a := document.Call("createElement", "a")
+	a.Set("textContent", "Delete")
+	a.Call("setAttribute", "href", "")
+	td = document.Call("createElement", "td")
+	td.Call("appendChild", a)
+	a.Set("onclick", clickLinkToDelete)
+	tr.Call("appendChild", td)
+
 	tbody := table.Call("getElementsByTagName", "tbody").Index(0)
 	tbody.Call("appendChild", tr)
+}
+
+func clickLinkToDelete(e js.Object) {
+	e.Call("preventDefault")
+	id, err := getIDFromElement(e.Get("target"))
+	if err != nil {
+		printError(err.Error())
+		return
+	}
+	// TODO: Confirming if needed.
+	item := items.Get(id)
+	item.Destroy()
+	e2 := getIDElement(e.Get("target")) 
+	if e2 != nil {
+		e2.Get("parentNode").Call("removeChild", e2)
+	}
 }

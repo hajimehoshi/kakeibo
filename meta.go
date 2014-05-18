@@ -2,27 +2,15 @@ package main
 
 import (
 	"github.com/hajimehoshi/kakeibo/uuid"
-	"strconv"
 )
 
-type UnixTime int64
-
-func ParseUnixTime(str string) (UnixTime, error) {
-	i, err := strconv.ParseInt(str, 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return UnixTime(i), nil
-}
-
-func (t UnixTime) String() string {
-	return strconv.FormatInt(int64(t), 10)
-}
+type UnixTime float64
 
 type Meta struct {
 	ID          uuid.UUID `json:"id"`
-	LastUpdated UnixTime  `json:"last_updated,string"`
+	LastUpdated UnixTime  `json:"last_updated"`
 	IsDeleted   bool      `json:"is_deleted"`
+	UserID      string    `json:"-"`
 }
 
 func NewMeta() Meta {

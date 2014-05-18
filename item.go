@@ -18,11 +18,11 @@ type Storage interface {
 	Save(interface{}) error
 	Load(name string, id uuid.UUID, callback func(val string)) error
 	LoadAll(name string, callback func(val []string)) error
+	Sync(name string)
 }
 
 type MoneyAmount int
 
-// FIXME: What if another user tries to access the storage?
 type ItemData struct {
 	Meta    Meta        `json:"meta"`
 	Date    date.Date   `json:"date"`
@@ -176,10 +176,25 @@ func (i *Items) Get(id uuid.UUID) *Item {
 	return nil
 }
 
+func (i *Items) GetItems(ids []uuid.UUID) []*Item {
+	items := []*Item{}
+	for _, id := range ids {
+		item := i.Get(id)
+		if item != nil {
+			items = append(items, item)
+		}
+	}
+	return items
+}
+
 func (i *Items) All() []*Item {
 	result := []*Item{}
 	for _, item := range i.items {
 		result = append(result, item)
 	}
 	return result
+}
+
+func (i *Items) Sync() {
+	i.storage.Sync("items")
 }

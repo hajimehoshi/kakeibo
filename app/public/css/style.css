@@ -24,6 +24,12 @@ ol, ul {
 /*
  * Base
  */
+body > header p {
+    position: relative;
+    right: 0;
+    text-align: right;
+    top: 0px; /* TODO: Fix this */
+}
 ul, ol {
     margin-left: 1.5em;
 }
@@ -55,7 +61,7 @@ body > header h1 {
 address, caption, dialog, dl, h1, h2, h3, h4, h5, h6, ol, p, pre, ul {
     position: relative;
 }
-address, caption, dialog, ol, p, pre, ul {
+address, caption, dialog, ol, p, pre, table, ul {
     font-size: 14px;
     line-height: 24px;
     text-align: justify;
@@ -113,6 +119,9 @@ a:hover {
 }
 a:active {
     color: #811;
+}
+body > header a {
+    color: #fff !important;
 }
 
 /*

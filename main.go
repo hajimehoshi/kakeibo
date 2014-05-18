@@ -3,11 +3,9 @@
 package main
 
 import (
-	"errors"
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/idb"
-	"github.com/hajimehoshi/kakeibo/uuid"
 )
 
 var schemaSet = idb.NewSchemaSet()
@@ -18,28 +16,9 @@ func printError(val interface{}) {
 	js.Global.Get("console").Call("error", val)
 }
 
-func getIDFromElement(e js.Object) (uuid.UUID, error) {
-	for {
-		attr := e.Get("dataset").Get(datasetAttrID)
-		if !attr.IsUndefined() {
-			str := attr.Str()
-			id, err := uuid.ParseString(str)
-			if err != nil {
-				return uuid.UUID{}, err
-			}
-			return id, nil
-		}
-		e = e.Get("parentNode")
-		if e.IsNull() || e.IsUndefined() {
-			break
-		}
-	}
-	return uuid.UUID{}, errors.New("not found")
-}
-
 func addEventListeners(form js.Object) {
 	inputDate := form.Call("querySelector", "input[name=date]")
-	inputDate.Call("addEventListener", "change", func(e js.Object) {
+	inputDate.Set("onchange", func(e js.Object) {
 		id, err := getIDFromElement(e.Get("target"))
 		if err != nil {
 			printError(err.Error())
@@ -56,7 +35,7 @@ func addEventListeners(form js.Object) {
 		item.UpdateDate(d)
 	})
 	inputSubject := form.Call("querySelector", "input[name=subject]")
-	inputSubject.Call("addEventListener", "change", func(e js.Object) {
+	inputSubject.Set("onchange", func(e js.Object) {
 		id, err := getIDFromElement(e.Get("target"))
 		if err != nil {
 			printError(err.Error())
@@ -68,7 +47,7 @@ func addEventListeners(form js.Object) {
 		item.UpdateSubject(subject)
 	})
 	inputMoneyAmount := form.Call("querySelector", "input[name=amount]")
-	inputMoneyAmount.Call("addEventListener", "change", func(e js.Object) {
+	inputMoneyAmount.Set("onchange", func(e js.Object) {
 		id, err := getIDFromElement(e.Get("target"))
 		if err != nil {
 			printError(err.Error())
@@ -81,11 +60,25 @@ func addEventListeners(form js.Object) {
 	})
 }
 
+func deleteDBIfUserChanged(name string) {
+	ls := js.Global.Get("localStorage")
+	last := ls.Call("getItem", "last_user_email").Str()
+	current := js.Global.Get("userEmail").Str()
+	if last != current {
+		js.Global.Get("indexedDB").Call("deleteDatabase", name)
+		ls.Call("setItem", "last_user_email", current)
+	}
+}
+
 func main() {
+	const dbName = "kakeibo"
+	deleteDBIfUserChanged(dbName)
+
 	var view = &HTMLView{}
-	db := idb.New("kakeibo", schemaSet)
+	db := idb.New(dbName, schemaSet)
 
 	items = NewItems(view, db)
+	items.Sync()
 	item := items.New()
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")

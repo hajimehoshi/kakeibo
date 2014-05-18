@@ -9,6 +9,7 @@
   <body>
     <header>
       <h1>Kakeibo</h1>
+      <p>Hello, {{.UserEmail}}! (<a href="{{.LogoutURL}}">Logout</a>)</p>
     </header>
     <nav>
       <h1>Recent</h1>
@@ -28,12 +29,14 @@
             <th>Date</th>
             <th>Subject</th>
             <th>Amount</th>
+            <th>Op</th>
           </tr>
         </thead>
         <tbody>
         </tbody>
       </table>
     </section>
+    <script>var userEmail = {{.UserEmail}};</script>
     <script src="scripts/main.js"></script>
   </body>
 </html>
