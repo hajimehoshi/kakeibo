@@ -73,9 +73,6 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 	u := user.Current(c)
 
-	// FIXME: JSON has limitation (Numbers should be float64).
-	// How about another format?
-
 	// request:
 	// {type: "items", last_updated: 12345}
 	// {JSON}
@@ -108,12 +105,16 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 		reqItems[d.Meta.ID] = &d
 	}
 
-	meta := map[string]interface{}{}
+	meta := map[string]string{}
 	if err := json.Unmarshal([]byte(ls[0]), &meta); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	lastUpdated := models.UnixTime(meta["last_updated"].(float64))
+	lastUpdated := models.UnixTime(0)
+	if err := lastUpdated.UnmarshalText([]byte(meta["last_updated"])); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	now := models.UnixTime(time.Now().Unix())
 	if now < lastUpdated {
 		http.Error(w, "last_updated is too new", http.StatusBadRequest)

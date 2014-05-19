@@ -7,16 +7,9 @@ import (
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/idb"
 	"github.com/hajimehoshi/kakeibo/models"
-	"reflect"
 )
 
 var schemaSet = idb.NewSchemaSet()
-
-func init() {
-	schemaSet.Add(reflect.TypeOf(&models.ItemData{}), &idb.Schema{
-		Name: "items",
-	})
-}
 
 var items *Items
 
@@ -68,20 +61,26 @@ func addEventListeners(form js.Object) {
 	})
 }
 
-func deleteDBIfUserChanged(name string) {
+func deleteDBIfUserChanged(name string, callback func()) {
 	ls := js.Global.Get("localStorage")
 	last := ls.Call("getItem", "last_user_email").Str()
 	current := js.Global.Get("userEmail").Str()
-	if last != current {
-		js.Global.Get("indexedDB").Call("deleteDatabase", name)
-		ls.Call("setItem", "last_user_email", current)
+	if last == current {
+		callback()
+		return
 	}
+	req := js.Global.Get("indexedDB").Call("deleteDatabase", name)
+	req.Set("onsuccess", callback)
+	ls.Call("setItem", "last_user_email", current)
 }
 
-func main() {
-	const dbName = "kakeibo"
-	deleteDBIfUserChanged(dbName)
+const dbName = "kakeibo"
 
+func main() {
+	deleteDBIfUserChanged(dbName, ready)
+}
+
+func ready() {
 	var view = &HTMLView{}
 	db := idb.New(dbName, schemaSet)
 	db.Sync()

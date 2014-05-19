@@ -3,9 +3,18 @@ package main
 import (
 	"encoding/json"
 	"github.com/hajimehoshi/kakeibo/date"
+	"github.com/hajimehoshi/kakeibo/idb"
 	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
+	"reflect"
 )
+
+func init() {
+	schemaSet.Add(&idb.Schema{
+		Type: reflect.TypeOf(models.ItemData{}),
+		Name: "items",
+	})
+}
 
 type Storage interface {
 	Save(interface{}) error
@@ -55,14 +64,14 @@ func (i *Item) UpdateAmount(amount models.MoneyAmount) {
 }
 
 func (i *Item) Save() {
-	i.data.Meta.LastUpdated = 0
+	i.data.Meta.LastUpdated = models.UnixTime(0)
 	i.Print()
 	i.save()
 }
 
 func (i *Item) Destroy() {
 	meta := i.data.Meta
-	meta.LastUpdated = 0
+	meta.LastUpdated = models.UnixTime(0)
 	meta.IsDeleted = true
 	i.data = &models.ItemData{Meta: meta}
 	i.Save()

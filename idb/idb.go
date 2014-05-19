@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gopherjs/gopherjs/js"
+	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
 	"reflect"
 	"strings"
@@ -17,6 +18,7 @@ const (
 )
 
 type Schema struct {
+	Type reflect.Type
 	Name string
 }
 
@@ -26,12 +28,16 @@ func NewSchemaSet() SchemaSet {
 	return SchemaSet(map[reflect.Type]*Schema{})
 }
 
-func (s SchemaSet) Add(t reflect.Type, schema *Schema) {
-	s[t] = schema
+func (s SchemaSet) Add(schema *Schema) {
+	s[schema.Type] = schema
 }
 
 func (s SchemaSet) GetFor(value interface{}) *Schema {
-	return s[reflect.TypeOf(value)]
+	t := reflect.TypeOf(value)
+	if schema, ok := s[t]; ok {
+		return schema
+	}
+	return s[reflect.PtrTo(t)]
 }
 
 type IDB struct {
@@ -106,19 +112,21 @@ func (i *IDB) Save(value interface{}) error {
 		return errors.New("idb: schema not found")
 	}
 
+	valStr, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	j := js.Global.Get("JSON").Call("parse", string(valStr))
+	i.put(schema, j)
+	return nil
+}
+
+func (i *IDB) put(schema *Schema, j js.Object) {
 	db := i.db
 	t := db.Call("transaction", schema.Name, "readwrite")
 	s := t.Call("objectStore", schema.Name)
-
-	valStr, err := json.Marshal(value)
-	if err != nil {
-		return errors.New("idb: invalid value")
-	}
-	j := js.Global.Get("JSON").Call("parse", string(valStr))
 	req := s.Call("put", j)
 	req.Set("onerror", onError)
-
-	return nil
 }
 
 func jsonStringify(v interface{}) string {
@@ -185,31 +193,36 @@ func (i *IDB) Sync() {
 		return
 	}
 	for _, s := range i.schemaSet {
-		i.sync(s.Name)
+		i.sync(s)
 	}
 }
 
-func (i *IDB) sync(name string) {
-	maxLastUpdated := float64(0)
+func (i *IDB) sync(schema *Schema) {
+	// FIXME: Save this as a member variable. Don't use the same value repeatedly.
+	maxLastUpdated := models.UnixTime(0)
 
 	db := i.db
-	t := db.Call("transaction", name, "readonly")
-	s := t.Call("objectStore", name)
+	t := db.Call("transaction", schema.Name, "readonly")
+	s := t.Call("objectStore", schema.Name)
 	idx := s.Call("index", lastUpdatedIndex)
 	req := idx.Call("openCursor", nil, "prev")
 	req.Set("onsuccess", func(e js.Object) {
 		cursor := e.Get("target").Get("result")
 		if !cursor.IsNull() {
 			value := cursor.Get("value")
-			maxLastUpdated =
-				value.Get("meta").Get("last_updated").Float()
+			l := value.Get("meta").Get("last_updated").Str()
+			if err := maxLastUpdated.UnmarshalText([]byte(l)); err != nil {
+				// TODO: Fix this
+				print(err.Error())
+				return
+			}
 		}
-		req := idx.Call("openCursor", 0)
+		req := idx.Call("openCursor", models.UnixTime(0).String())
 		values := []js.Object{}
 		req.Set("onsuccess", func(e js.Object) {
 			cursor := e.Get("target").Get("result")
 			if cursor.IsNull() {
-				i.sync2(name, maxLastUpdated, values)
+				i.sync2(schema, maxLastUpdated, values)
 				return
 			}
 			value := cursor.Get("value")
@@ -222,25 +235,40 @@ func (i *IDB) sync(name string) {
 	req.Set("onerror", onError)
 }
 
-func (i *IDB) sync2(name string, maxLastUpdated float64, values []js.Object) {
+func (i *IDB) sync2(schema *Schema, maxLastUpdated models.UnixTime, values []js.Object) {
 	req := js.Global.Get("XMLHttpRequest").New()
 	req.Call("open", "POST", "/sync", true)
 	req.Set("onload", func(e js.Object) {
 		xhr := e.Get("target")
 		if xhr.Get("status").Int() != 200 {
+			// TODO: Fix this
 			print(xhr.Get("responseText").Str())
 			return
 		}
 		text := xhr.Get("responseText").Str()
-		print(text)
+		lines := strings.Split(text, "\n")
+		// Skip the first line.
+		for _, l := range lines[1:] {
+			// TODO: Validation here?
+			l = strings.Trim(l, " \r\n\t\v")
+			if len(l) == 0 {
+				continue
+			}
+			j := js.Global.Get("JSON").Call("parse", l)
+			i.put(schema, j)
+			// FIXME: Notify to view
+			v := reflect.New(schema.Type).Interface()
+			json.Unmarshal([]byte(l), v)
+			print(fmt.Sprintf("%+v\n", v.(*models.ItemData)))
+		}
 	})
 	req.Set("onerror", func(e js.Object) {
 		// FIXME: implement this
 	})
 	jsons := []string{
 		jsonStringify(map[string]interface{}{
-			"type":         name,
-			"last_updated": maxLastUpdated,
+			"type":         schema.Name,
+			"last_updated": maxLastUpdated.String(),
 		}),
 	}
 	for _, v := range values {
