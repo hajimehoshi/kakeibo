@@ -15,5 +15,5 @@ func today() Date {
 	month := time.Month(jsToday.Call("getMonth").Int() + 1)
 	day := jsToday.Call("getDate").Int()
 	today := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
-	return Date{today.Unix()}
+	return Date(today.Unix())
 }

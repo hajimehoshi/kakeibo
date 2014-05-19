@@ -6,6 +6,7 @@ import (
 	"appengine/user"
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
@@ -72,6 +73,9 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 	u := user.Current(c)
 
+	// FIXME: JSON has limitation (Numbers should be float64).
+	// How about another format?
+
 	// request:
 	// {type: "items", last_updated: 12345}
 	// {JSON}
@@ -81,9 +85,7 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 	// {type: "items", last_updated: 67890}
 	// {JSON + last_updated}
 	// {JSON + last_updated}
-	// 
-	// The client accepts the response and update all data. Then, the items
-	// 'last_updated = 0' don't exist.
+
 	ls, err := lines(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -121,12 +123,12 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 	resItems := map[uuid.UUID]*models.ItemData{}
 
 	if err := datastore.RunInTransaction(c, func(c appengine.Context) error {
-		const keyStringID = "items-foo"
+		const rootKeyStringID = "items"
 
 		serverItems := map[uuid.UUID]*models.ItemData{}
-		key := datastore.NewKey(c, kindItems, keyStringID, 0, nil)
+		rootKey := datastore.NewKey(c, kindItems, rootKeyStringID, 0, nil)
 		q := datastore.NewQuery(kindItems)
-		q = q.Ancestor(key)
+		q = q.Ancestor(rootKey)
 		q = q.Filter("Meta.LastUpdated >=", lastUpdated)
 		q = q.Filter("Meta.UserID =", u.ID)
 		t := q.Run(c)
@@ -152,6 +154,16 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			// The requested data is new.
+			strID := id.String()
+			key := datastore.NewKey(c, kindItems, strID, 0, rootKey)
+			var d2 models.ItemData
+			err := datastore.Get(c, key, &d2)
+			if err == nil {
+				return errors.New("invalid UUID")
+			}
+			if err != datastore.ErrNoSuchEntity {
+				return err
+			}
 			d.Meta.LastUpdated = now
 			d.Meta.UserID = u.ID
 			serverNewItems = append(serverNewItems, d)
@@ -161,8 +173,9 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 		keys := []*datastore.Key{}
 		for _, d := range serverNewItems {
 			strID := d.Meta.ID.String()
-			keys = append(keys, datastore.NewKey(c, kindItems, strID, 0, nil))
+			keys = append(keys, datastore.NewKey(c, kindItems, strID, 0, rootKey))
 		}
+
 		if _, err := datastore.PutMulti(c, keys, serverNewItems); err != nil {
 			return err
 		}
@@ -173,13 +186,21 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//if vals
-
-	//d := []*models.ItemData
-	// Check the data
-	// Add user
-	// Update db
-	// Get data whose user is the current user
-	// Return them
-	fmt.Fprintf(w, "%+v\n", reqItems)
+	j, err := json.Marshal(map[string]interface{}{
+		"type":         "items",
+		"last_updated": now,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintf(w, "%s\n", j)
+	for _, i := range resItems {
+		j, err := json.Marshal(i)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprintf(w, "%s\n", j)
+	}
 }
