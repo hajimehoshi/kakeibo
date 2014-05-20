@@ -10,7 +10,6 @@ import (
 	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
 	"reflect"
-	"strings"
 )
 
 const (
@@ -22,27 +21,36 @@ type Schema struct {
 	Name string
 }
 
-type SchemaSet map[reflect.Type]*Schema
-
-func NewSchemaSet() SchemaSet {
-	return SchemaSet(map[reflect.Type]*Schema{})
+type SchemaSet struct {
+	set map[reflect.Type]*Schema
 }
 
-func (s SchemaSet) Add(schema *Schema) {
-	s[schema.Type] = schema
+func NewSchemaSet() *SchemaSet {
+	return &SchemaSet{
+		set: map[reflect.Type]*Schema{},
+	}
 }
 
-func (s SchemaSet) GetFor(value interface{}) *Schema {
+func (s *SchemaSet) Add(schema *Schema) {
+	s.set[schema.Type] = schema
+}
+
+func (s *SchemaSet) GetFor(value interface{}) *Schema {
 	t := reflect.TypeOf(value)
-	if schema, ok := s[t]; ok {
+	if schema, ok := s.set[t]; ok {
 		return schema
 	}
-	return s[reflect.PtrTo(t)]
+	for t2, schema := range s.set {
+		if reflect.PtrTo(t2) == t {
+			return schema
+		}
+	}
+	return nil
 }
 
 type IDB struct {
 	db        js.Object
-	schemaSet SchemaSet
+	schemaSet *SchemaSet
 	queue     []func()
 }
 
@@ -53,7 +61,7 @@ func onError(e js.Object) {
 	print(fmt.Sprintf("%s: %s", name, msg))
 }
 
-func New(name string, schemaSet SchemaSet) *IDB {
+func New(name string, schemaSet *SchemaSet) *IDB {
 	idb := &IDB{
 		db:        nil,
 		schemaSet: schemaSet,
@@ -64,7 +72,7 @@ func New(name string, schemaSet SchemaSet) *IDB {
 	req := js.Global.Get("indexedDB").Call("open", name, version)
 	req.Set("onupgradeneeded", func(e js.Object) {
 		db := e.Get("target").Get("result")
-		for _, schema := range idb.schemaSet {
+		for _, schema := range idb.schemaSet.set {
 			store := db.Call(
 				"createObjectStore",
 				schema.Name,
@@ -109,24 +117,27 @@ func (i *IDB) Save(value interface{}) error {
 
 	schema := i.schemaSet.GetFor(value)
 	if schema == nil {
-		return errors.New("idb: schema not found")
+		return errors.New("IDB.Save: schema not found")
 	}
 
-	valStr, err := json.Marshal(value)
-	if err != nil {
+	if err := i.put(schema, value); err != nil {
 		return err
 	}
-	j := js.Global.Get("JSON").Call("parse", string(valStr))
-	i.put(schema, j)
 	return nil
 }
 
-func (i *IDB) put(schema *Schema, j js.Object) {
+func (i *IDB) put(schema *Schema, v interface{}) error {
+	json, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	j := js.Global.Get("JSON").Call("parse", string(json))
 	db := i.db
 	t := db.Call("transaction", schema.Name, "readwrite")
 	s := t.Call("objectStore", schema.Name)
 	req := s.Call("put", j)
 	req.Set("onerror", onError)
+	return nil
 }
 
 func jsonStringify(v interface{}) string {
@@ -192,19 +203,21 @@ func (i *IDB) Sync() {
 		})
 		return
 	}
-	for _, s := range i.schemaSet {
+	for _, s := range i.schemaSet.set {
 		i.sync(s)
 	}
 }
 
 func (i *IDB) sync(schema *Schema) {
-	// FIXME: Save this as a member variable. Don't use the same value repeatedly.
+	// FIXME: Save this as a member variable. Don't use the same value
+	// repeatedly.
 	maxLastUpdated := models.UnixTime(0)
 
 	db := i.db
 	t := db.Call("transaction", schema.Name, "readonly")
 	s := t.Call("objectStore", schema.Name)
 	idx := s.Call("index", lastUpdatedIndex)
+	// FIXME: Use the openCursor iff |maxLastUpdated| == 0.
 	req := idx.Call("openCursor", nil, "prev")
 	req.Set("onsuccess", func(e js.Object) {
 		cursor := e.Get("target").Get("result")
@@ -218,14 +231,22 @@ func (i *IDB) sync(schema *Schema) {
 			}
 		}
 		req := idx.Call("openCursor", models.UnixTime(0).String())
-		values := []js.Object{}
+		values := []interface{}{}
 		req.Set("onsuccess", func(e js.Object) {
 			cursor := e.Get("target").Get("result")
 			if cursor.IsNull() {
 				i.sync2(schema, maxLastUpdated, values)
 				return
 			}
-			value := cursor.Get("value")
+			j := cursor.Get("value")
+			jStr := jsonStringify(j)
+			value := reflect.New(schema.Type).Interface()
+			if err := json.Unmarshal([]byte(jStr), value); err != nil {
+				// TODO: Fix this
+				print(err.Error())
+				cursor.Call("continue")
+				return
+			}
 			values = append(values, value)
 			cursor.Call("continue")
 			return
@@ -235,7 +256,10 @@ func (i *IDB) sync(schema *Schema) {
 	req.Set("onerror", onError)
 }
 
-func (i *IDB) sync2(schema *Schema, maxLastUpdated models.UnixTime, values []js.Object) {
+func (i *IDB) sync2(
+	schema *Schema,
+	maxLastUpdated models.UnixTime,
+	values []interface{}) {
 	req := js.Global.Get("XMLHttpRequest").New()
 	req.Call("open", "POST", "/sync", true)
 	req.Set("onload", func(e js.Object) {
@@ -246,33 +270,34 @@ func (i *IDB) sync2(schema *Schema, maxLastUpdated models.UnixTime, values []js.
 			return
 		}
 		text := xhr.Get("responseText").Str()
-		lines := strings.Split(text, "\n")
-		// Skip the first line.
-		for _, l := range lines[1:] {
-			// TODO: Validation here?
-			l = strings.Trim(l, " \r\n\t\v")
-			if len(l) == 0 {
-				continue
+		res := models.SyncResponse{}
+		if err := json.Unmarshal([]byte(text), &res); err != nil {
+			// TODO: Fix this
+			print(err.Error())
+			return
+		}
+		for _, v := range res.Values {
+			v, ok := v.(*models.ItemData)
+			if !ok {
+				// TODO: Fix this
+				print("invalid response")
+				return
 			}
-			j := js.Global.Get("JSON").Call("parse", l)
-			i.put(schema, j)
-			// FIXME: Notify to view
-			v := reflect.New(schema.Type).Interface()
-			json.Unmarshal([]byte(l), v)
-			print(fmt.Sprintf("%+v\n", v.(*models.ItemData)))
+			if err := i.put(schema, v); err != nil {
+				// TODO: Fix this
+				print(err.Error())
+				return
+			}
 		}
 	})
 	req.Set("onerror", func(e js.Object) {
 		// FIXME: implement this
 	})
-	jsons := []string{
-		jsonStringify(map[string]interface{}{
-			"type":         schema.Name,
-			"last_updated": maxLastUpdated.String(),
-		}),
+	request := models.SyncRequest{
+		Type:        schema.Name,
+		LastUpdated: maxLastUpdated,
+		Values:      values,
 	}
-	for _, v := range values {
-		jsons = append(jsons, jsonStringify(v))
-	}
-	req.Call("send", strings.Join(jsons, "\n"))
+	str, _ := json.Marshal(request)
+	req.Call("send", str)
 }

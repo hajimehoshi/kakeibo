@@ -4,16 +4,13 @@ import (
 	"appengine"
 	"appengine/datastore"
 	"appengine/user"
-	"bufio"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
 	"html/template"
-	"io"
+	"io/ioutil"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -50,71 +47,31 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func lines(r io.Reader) ([]string, error) {
-	lines := []string{}
-	reader := bufio.NewReader(r)
-	for {
-		line, err := reader.ReadString('\n')
-		if err == nil || err == io.EOF {
-			line = strings.Trim(line, " \t\v\r\n")
-			lines = append(lines, line)
-			if err == io.EOF {
-				break
-			}
-		}
-		if err != nil {
-			return nil, err
-		}
-	}
-	return lines, nil
-}
-
 func handleSync(w http.ResponseWriter, r *http.Request) {
 	c := appengine.NewContext(r)
 	u := user.Current(c)
 
-	// request:
-	// {type: "items", last_updated: 12345}
-	// {JSON}
-	// {JSON}
-	//
-	// response:
-	// {type: "items", last_updated: 67890}
-	// {JSON + last_updated}
-	// {JSON + last_updated}
-
-	ls, err := lines(r.Body)
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if len(ls) == 0 {
-		http.Error(w, "empty request", http.StatusBadRequest)
+	req := models.SyncRequest{}
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
+	lastUpdated := req.LastUpdated
 	reqItems := map[uuid.UUID]*models.ItemData{}
-	for _, l := range ls[1:] {
-		var d models.ItemData
-		if err := json.Unmarshal([]byte(l), &d); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+	for _, v := range req.Values {
+		v, ok := v.(*models.ItemData)
+		if !ok {
+			http.Error(w, "invalid data", http.StatusBadRequest)
+			return
 		}
-		if !d.IsValid() {
-			continue
-		}
-		reqItems[d.Meta.ID] = &d
+		reqItems[v.Meta.ID] = v
 	}
 
-	meta := map[string]string{}
-	if err := json.Unmarshal([]byte(ls[0]), &meta); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	lastUpdated := models.UnixTime(0)
-	if err := lastUpdated.UnmarshalText([]byte(meta["last_updated"])); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
 	now := models.UnixTime(time.Now().Unix())
 	if now < lastUpdated {
 		http.Error(w, "last_updated is too new", http.StatusBadRequest)
@@ -187,21 +144,24 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j, err := json.Marshal(map[string]interface{}{
-		"type":         "items",
-		"last_updated": now,
-	})
+	values := []interface{}{}
+	for _, v := range resItems {
+		values = append(values, v)
+	}
+	res := &models.SyncResponse{
+		Type: req.Type,
+		LastUpdated: now,
+		Values: values,
+	}
+	resBytes, err := json.Marshal(res)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	fmt.Fprintf(w, "%s\n", j)
-	for _, i := range resItems {
-		j, err := json.Marshal(i)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		fmt.Fprintf(w, "%s\n", j)
+	_, err = w.Write(resBytes)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
+
