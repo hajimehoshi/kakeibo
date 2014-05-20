@@ -3,18 +3,19 @@ package models
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
 )
 
 type SyncRequest struct {
-	Type        string        `json:"type"`
-	LastUpdated UnixTime      `json:"last_updated"`
-	Values      []interface{} `json:"values"`
+	Type        string
+	LastUpdated UnixTime
+	Values      []interface{}
 }
 
 type syncRequestRaw struct {
-	Type        string          `json:"type"`
-	LastUpdated UnixTime        `json:"last_updated"`
-	RawValues   json.RawMessage `json:"values"`
+	Type        string
+	LastUpdated UnixTime
+	RawValues   json.RawMessage `json:"Values"`
 }
 
 func (s *SyncRequest) UnmarshalJSON(b []byte) error {
@@ -25,7 +26,7 @@ func (s *SyncRequest) UnmarshalJSON(b []byte) error {
 	s.Type = raw.Type
 	s.LastUpdated = raw.LastUpdated
 	switch s.Type {
-	case "items":
+	case reflect.TypeOf(ItemData{}).Name():
 		values := []*ItemData{}
 		if err := json.Unmarshal(raw.RawValues, &values); err != nil {
 			return err
@@ -41,15 +42,15 @@ func (s *SyncRequest) UnmarshalJSON(b []byte) error {
 
 // TODO: Refactoring
 type SyncResponse struct {
-	Type        string        `json:"type"`
-	LastUpdated UnixTime      `json:"last_updated"`
-	Values      []interface{} `json:"values"`
+	Type        string
+	LastUpdated UnixTime
+	Values      []interface{}
 }
 
 type syncResponseRaw struct {
-	Type        string          `json:"type"`
-	LastUpdated UnixTime        `json:"last_updated"`
-	RawValues   json.RawMessage `json:"values"`
+	Type        string
+	LastUpdated UnixTime
+	RawValues   json.RawMessage `json:"Values"`
 }
 
 func (s *SyncResponse) UnmarshalJSON(b []byte) error {
@@ -60,7 +61,7 @@ func (s *SyncResponse) UnmarshalJSON(b []byte) error {
 	s.Type = raw.Type
 	s.LastUpdated = raw.LastUpdated
 	switch s.Type {
-	case "items":
+	case reflect.TypeOf(ItemData{}).Name():
 		values := []*ItemData{}
 		if err := json.Unmarshal(raw.RawValues, &values); err != nil {
 			return err

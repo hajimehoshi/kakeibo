@@ -81,7 +81,7 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 	resItems := map[uuid.UUID]*models.ItemData{}
 
 	if err := datastore.RunInTransaction(c, func(c appengine.Context) error {
-		const rootKeyStringID = "items"
+		const rootKeyStringID = "Items"
 
 		serverItems := map[uuid.UUID]*models.ItemData{}
 		rootKey := datastore.NewKey(c, kindItems, rootKeyStringID, 0, nil)

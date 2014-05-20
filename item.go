@@ -10,9 +10,10 @@ import (
 )
 
 func init() {
+	// FIXME: Remove this
 	schemaSet.Add(&idb.Schema{
 		Type: reflect.TypeOf(models.ItemData{}),
-		Name: "items",
+		Name: reflect.TypeOf(models.ItemData{}).Name(),
 	})
 }
 
@@ -106,7 +107,7 @@ func NewItems(view ItemView, storage Storage) *Items {
 		view:    view,
 		storage: storage,
 	}
-	items.storage.LoadAll("items", items.onStorageItemsLoaded)
+	items.storage.LoadAll(reflect.TypeOf(models.ItemData{}).Name(), items.onStorageItemsLoaded)
 	return items
 }
 

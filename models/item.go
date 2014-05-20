@@ -7,10 +7,10 @@ import (
 type MoneyAmount int
 
 type ItemData struct {
-	Meta    Meta        `json:"meta"`
-	Date    date.Date   `json:"date"`
-	Subject string      `json:"subject"`
-	Amount  MoneyAmount `json:"amount"`
+	Meta    Meta
+	Date    date.Date
+	Subject string
+	Amount  MoneyAmount
 }
 
 func (i *ItemData) IsValid() bool {

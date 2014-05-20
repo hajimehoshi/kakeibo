@@ -28,10 +28,10 @@ func (u UnixTime) String() string {
 }
 
 type Meta struct {
-	ID          uuid.UUID `json:"id"`
-	LastUpdated UnixTime  `json:"last_updated"`
-	IsDeleted   bool      `json:"is_deleted"`
-	UserID      string    `json:"-"`
+	ID          uuid.UUID
+	LastUpdated UnixTime
+	IsDeleted   bool
+	UserID      string `json:"-"`
 }
 
 func NewMeta() Meta {

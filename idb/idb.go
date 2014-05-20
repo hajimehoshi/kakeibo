@@ -77,13 +77,13 @@ func New(name string, schemaSet *SchemaSet) *IDB {
 				"createObjectStore",
 				schema.Name,
 				map[string]interface{}{
-					"keyPath":       "meta.id",
+					"keyPath":       "Meta.ID",
 					"autoIncrement": false,
 				})
 			store.Call(
 				"createIndex",
 				lastUpdatedIndex,
-				"meta.last_updated",
+				"Meta.LastUpdated",
 				map[string]interface{}{
 					"unique": false,
 				})
@@ -184,7 +184,7 @@ func (i *IDB) LoadAll(name string, callback func(val []string)) error {
 			return
 		}
 		value := cursor.Get("value")
-		if value.Get("meta").Get("is_deleted").Bool() {
+		if value.Get("Meta").Get("IsDeleted").Bool() {
 			cursor.Call("continue")
 			return
 		}
@@ -223,7 +223,7 @@ func (i *IDB) sync(schema *Schema) {
 		cursor := e.Get("target").Get("result")
 		if !cursor.IsNull() {
 			value := cursor.Get("value")
-			l := value.Get("meta").Get("last_updated").Str()
+			l := value.Get("Meta").Get("LastUpdated").Str()
 			if err := maxLastUpdated.UnmarshalText([]byte(l)); err != nil {
 				// TODO: Fix this
 				print(err.Error())
