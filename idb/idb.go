@@ -18,6 +18,7 @@ const (
 type Model interface {
 	Type() reflect.Type
 	OnLoaded(vals []interface{})
+	OnInitialLoaded(vals []interface{})
 }
 
 type IDB struct {
@@ -94,7 +95,7 @@ func (i *IDB) loadAll(m Model) error {
 	req.Set("onsuccess", func(e js.Object) {
 		cursor := e.Get("target").Get("result")
 		if cursor.IsNull() {
-			m.OnLoaded(values)
+			m.OnInitialLoaded(values)
 			return
 		}
 		value := cursor.Get("value")

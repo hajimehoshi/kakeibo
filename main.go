@@ -101,12 +101,13 @@ func ready() {
 		item := items.Get(id)
 		// TODO: validation here?
 		item.Save()
+
+		newItem := items.New()
+		form.Get("dataset").Set(datasetAttrID, newItem.ID().String())
+		newItem.Print()
+
 		view.AddIDToItemTable(item.ID())
 		items.Get(id).Print()
-
-		item = items.New()
-		form.Get("dataset").Set(datasetAttrID, item.ID().String())
-		item.Print()
 	})
 	form.Get("dataset").Set(datasetAttrID, item.ID().String())
 	item.Print()

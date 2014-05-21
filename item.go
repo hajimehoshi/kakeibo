@@ -13,7 +13,7 @@ type Storage interface {
 
 type ItemView interface {
 	PrintItem(data models.ItemData)
-	SetIDsToItemTable(ids []uuid.UUID)
+	OnInit(items *Items)
 }
 
 type Item struct {
@@ -102,32 +102,31 @@ func (i *Items) Type() reflect.Type {
 }
 
 func (i *Items) OnLoaded(vals []interface{}) {
-	ids := []uuid.UUID{}
 	for _, v := range vals {
 		d, ok := v.(*models.ItemData)
 		if !ok {
+			print("invalid data")
 			return
 		}
 		id := d.Meta.ID
 		if item, ok := i.items[id]; ok {
 			*item.data = *d
 			item.Print()
-			return
+			continue
 		}
 		item := &Item{
 			data:    d,
 			view:    i.view,
 			storage: i.storage,
 		}
-		ids = append(ids, id)
 		i.items[id] = item
+		item.Print()
 	}
-	// FIXME
-	print(ids)
-	i.view.SetIDsToItemTable(ids)
-	for _, id := range ids {
-		i.items[id].Print()
-	}
+}
+
+func (i *Items) OnInitialLoaded(vals []interface{}) {
+	i.OnLoaded(vals)
+	i.view.OnInit(i)
 }
 
 func (i *Items) New() *Item {

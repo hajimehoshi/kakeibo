@@ -20,12 +20,6 @@ func getIDElement(e js.Object) js.Object {
 		attr := e.Get("dataset").Get(datasetAttrID)
 		if !attr.IsUndefined() {
 			return e
-			/*str := attr.Str()
-			id, err := uuid.ParseString(str)
-			if err != nil {
-				return uuid.UUID{}, err
-			}
-			return id, nil*/
 		}
 		e = e.Get("parentNode")
 		if e.IsNull() || e.IsUndefined() {
@@ -81,6 +75,19 @@ func printValueAt(e js.Object, name string, value string) {
 
 type HTMLView struct{}
 
+func (p *HTMLView) OnInit(items *Items) {
+	document := js.Global.Get("document")
+	table := document.Call("getElementById", "table_items")
+	tbody := table.Call("getElementsByTagName", "tbody").Index(0)
+	for tbody.Call("hasChildNodes").Bool() {
+		tbody.Call("removeChild", tbody.Get("lastChild"))
+	}
+	for _, i := range items.GetAll() {
+		p.AddIDToItemTable(i.ID())
+		i.Print()
+	}
+}
+
 func (p *HTMLView) PrintItem(data models.ItemData) {
 	document := js.Global.Get("document")
 	id := data.Meta.ID
@@ -95,23 +102,10 @@ func (p *HTMLView) PrintItem(data models.ItemData) {
 	}
 }
 
-func (p *HTMLView) SetIDsToItemTable(ids []uuid.UUID) {
-	document := js.Global.Get("document")
-	table := document.Call("getElementById", "table_items")
-	tbody := table.Call("getElementsByTagName", "tbody").Index(0)
-	for tbody.Call("hasChildNodes").Bool() {
-		tbody.Call("removeChild", tbody.Get("lastChild"))
-	}
-	// TODO: Sort here!
-	for _, id := range ids {
-		p.AddIDToItemTable(id)
-	}
-}
-
 func (p *HTMLView) isEditting(id uuid.UUID) bool {
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
-	i := form.Get("dataset").Get("data-" + datasetAttrID).Str()
+	i := form.Get("dataset").Get(datasetAttrID).Str()
 	return i == id.String()
 }
 

@@ -6,6 +6,7 @@ import (
 	"appengine/user"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
 	"html/template"
@@ -81,6 +82,7 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 	resItems := map[uuid.UUID]*models.ItemData{}
 
 	if err := datastore.RunInTransaction(c, func(c appengine.Context) error {
+		// FIXME: Rename this
 		const rootKeyStringID = "Items"
 
 		serverItems := map[uuid.UUID]*models.ItemData{}
@@ -103,7 +105,6 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 		}
 
 		serverNewItems := []*models.ItemData{}
-
 		for id, d := range serverItems {
 			resItems[id] = d
 		}
@@ -117,9 +118,11 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 			var d2 models.ItemData
 			err := datastore.Get(c, key, &d2)
 			if err == nil {
-				return errors.New("invalid UUID")
-			}
-			if err != datastore.ErrNoSuchEntity {
+				if d2.Meta.UserID != u.ID {
+					return errors.New(
+						fmt.Sprintf("invalid UUID: %s", strID))
+				}
+			} else if err != datastore.ErrNoSuchEntity {
 				return err
 			}
 			d.Meta.LastUpdated = now
@@ -133,7 +136,6 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 			strID := d.Meta.ID.String()
 			keys = append(keys, datastore.NewKey(c, kindItems, strID, 0, rootKey))
 		}
-
 		if _, err := datastore.PutMulti(c, keys, serverNewItems); err != nil {
 			return err
 		}
