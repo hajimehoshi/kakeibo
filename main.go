@@ -7,9 +7,10 @@ import (
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/idb"
 	"github.com/hajimehoshi/kakeibo/models"
+	"time"
 )
 
-var schemaSet = idb.NewSchemaSet()
+//var schemaSet = idb.NewSchemaSet()
 
 var items *Items
 
@@ -82,8 +83,7 @@ func main() {
 
 func ready() {
 	var view = &HTMLView{}
-	db := idb.New(dbName, schemaSet)
-	db.Sync()
+	db := idb.New(dbName)
 
 	items = NewItems(view, db)
 	item := items.New()
@@ -110,4 +110,11 @@ func ready() {
 	})
 	form.Get("dataset").Set(datasetAttrID, item.ID().String())
 	item.Print()
+
+	var sync func()
+	sync = func() {
+		db.Sync([]idb.Model{items})
+		time.AfterFunc(60 * time.Second, sync)
+	}
+	sync()
 }

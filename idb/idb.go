@@ -4,54 +4,27 @@ package idb
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/hajimehoshi/kakeibo/models"
-	"github.com/hajimehoshi/kakeibo/uuid"
 	"reflect"
+	"sync"
 )
 
 const (
-	lastUpdatedIndex = "last_updated"
+	lastUpdatedIndex = "LastUpdated"
 )
 
-type Schema struct {
-	Type reflect.Type
-	Name string
-}
-
-type SchemaSet struct {
-	set map[reflect.Type]*Schema
-}
-
-func NewSchemaSet() *SchemaSet {
-	return &SchemaSet{
-		set: map[reflect.Type]*Schema{},
-	}
-}
-
-func (s *SchemaSet) Add(schema *Schema) {
-	s.set[schema.Type] = schema
-}
-
-func (s *SchemaSet) GetFor(value interface{}) *Schema {
-	t := reflect.TypeOf(value)
-	if schema, ok := s.set[t]; ok {
-		return schema
-	}
-	for t2, schema := range s.set {
-		if reflect.PtrTo(t2) == t {
-			return schema
-		}
-	}
-	return nil
+type Model interface {
+	Type() reflect.Type
+	OnLoaded(vals []interface{})
 }
 
 type IDB struct {
-	db        js.Object
-	schemaSet *SchemaSet
-	queue     []func()
+	name         string
+	initializing sync.Once
+	db           js.Object
+	queue        []func()
 }
 
 func onError(e js.Object) {
@@ -61,45 +34,12 @@ func onError(e js.Object) {
 	print(fmt.Sprintf("%s: %s", name, msg))
 }
 
-func New(name string, schemaSet *SchemaSet) *IDB {
+func New(name string) *IDB {
 	idb := &IDB{
-		db:        nil,
-		schemaSet: schemaSet,
-		queue:     []func(){},
+		name:  name,
+		db:    nil,
+		queue: []func(){},
 	}
-
-	const version = 1
-	req := js.Global.Get("indexedDB").Call("open", name, version)
-	req.Set("onupgradeneeded", func(e js.Object) {
-		db := e.Get("target").Get("result")
-		for _, schema := range idb.schemaSet.set {
-			store := db.Call(
-				"createObjectStore",
-				schema.Name,
-				map[string]interface{}{
-					"keyPath":       "Meta.ID",
-					"autoIncrement": false,
-				})
-			store.Call(
-				"createIndex",
-				lastUpdatedIndex,
-				"Meta.LastUpdated",
-				map[string]interface{}{
-					"unique": false,
-				})
-			// TODO: create index for other columns
-		}
-	})
-	req.Set("onsuccess", func(e js.Object) {
-		idb.db = e.Get("target").Get("result")
-		idb.db.Set("onerror", onError)
-		for _, f := range idb.queue {
-			f()
-		}
-		idb.queue = []func(){}
-	})
-	req.Set("onerror", onError)
-
 	return idb
 }
 
@@ -115,26 +55,19 @@ func (i *IDB) Save(value interface{}) error {
 		return nil
 	}
 
-	schema := i.schemaSet.GetFor(value)
-	if schema == nil {
-		return errors.New("IDB.Save: schema not found")
-	}
-
-	if err := i.put(schema, value); err != nil {
-		return err
-	}
-	return nil
+	return i.put(value)
 }
 
-func (i *IDB) put(schema *Schema, v interface{}) error {
+func (i *IDB) put(v interface{}) error {
 	json, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
 	j := js.Global.Get("JSON").Call("parse", string(json))
 	db := i.db
-	t := db.Call("transaction", schema.Name, "readwrite")
-	s := t.Call("objectStore", schema.Name)
+	t := reflect.TypeOf(v).Elem()
+	tr := db.Call("transaction", t.Name(), "readwrite")
+	s := tr.Call("objectStore", t.Name())
 	req := s.Call("put", j)
 	req.Set("onerror", onError)
 	return nil
@@ -144,43 +77,24 @@ func jsonStringify(v interface{}) string {
 	return js.Global.Get("JSON").Call("stringify", v).Str()
 }
 
-func (i *IDB) Load(name string, id uuid.UUID, callback func(val string)) error {
+func (i *IDB) loadAll(m Model) error {
 	if !i.isReady() {
 		i.queue = append(i.queue, func() {
-			i.Load(name, id, callback)
+			i.loadAll(m)
 		})
 		return nil
 	}
 
 	db := i.db
-	t := db.Call("transaction", name, "readonly")
-	s := t.Call("objectStore", name)
-	req := s.Call("get", id.String())
-	req.Set("onsuccess", func(e js.Object) {
-		result := e.Get("target").Get("result")
-		callback(jsonStringify(result))
-	})
-	req.Set("onerror", onError)
-	return nil
-}
-
-func (i *IDB) LoadAll(name string, callback func(val []string)) error {
-	if !i.isReady() {
-		i.queue = append(i.queue, func() {
-			i.LoadAll(name, callback)
-		})
-		return nil
-	}
-
-	db := i.db
-	t := db.Call("transaction", name, "readonly")
-	s := t.Call("objectStore", name)
+	t := m.Type()
+	tr := db.Call("transaction", t.Name(), "readonly")
+	s := tr.Call("objectStore", t.Name())
 	req := s.Call("openCursor")
-	values := []string{}
+	values := []interface{}{}
 	req.Set("onsuccess", func(e js.Object) {
 		cursor := e.Get("target").Get("result")
 		if cursor.IsNull() {
-			callback(values)
+			m.OnLoaded(values)
 			return
 		}
 		value := cursor.Get("value")
@@ -188,7 +102,14 @@ func (i *IDB) LoadAll(name string, callback func(val []string)) error {
 			cursor.Call("continue")
 			return
 		}
-		values = append(values, jsonStringify(value))
+		v := reflect.New(t).Interface()
+		j := jsonStringify(value)
+		if err := json.Unmarshal([]byte(j), v); err != nil {
+			// TODO: fix this
+			print(err.Error())
+			return
+		}
+		values = append(values, v)
 		cursor.Call("continue")
 	})
 	req.Set("onerror", onError)
@@ -196,26 +117,69 @@ func (i *IDB) LoadAll(name string, callback func(val []string)) error {
 	return nil
 }
 
-func (i *IDB) Sync() {
+func (i *IDB) Sync(models []Model) {
 	if !i.isReady() {
+		i.initializing.Do(func() {
+			i.init(models)
+		})
 		i.queue = append(i.queue, func() {
-			i.Sync()
+			i.Sync(models)
 		})
 		return
 	}
-	for _, s := range i.schemaSet.set {
-		i.sync(s)
+	for _, m := range models {
+		i.sync(m)
 	}
 }
 
-func (i *IDB) sync(schema *Schema) {
+func (i *IDB) init(models []Model) {
+	const version = 1
+	req := js.Global.Get("indexedDB").Call("open", i.name, version)
+	req.Set("onupgradeneeded", func(e js.Object) {
+		db := e.Get("target").Get("result")
+		for _, m := range models {
+			store := db.Call(
+				"createObjectStore",
+				m.Type().Name(),
+				map[string]interface{}{
+					"keyPath":       "Meta.ID",
+					"autoIncrement": false,
+				})
+			store.Call(
+				"createIndex",
+				lastUpdatedIndex,
+				"Meta.LastUpdated",
+				map[string]interface{}{
+					"unique": false,
+				})
+			// TODO: create index for other columns
+		}
+	})
+	req.Set("onsuccess", func(e js.Object) {
+		i.db = e.Get("target").Get("result")
+		i.db.Set("onerror", onError)
+
+		for _, m := range models {
+			i.loadAll(m)
+		}
+
+		for _, f := range i.queue {
+			f()
+		}
+		i.queue = []func(){}
+	})
+	req.Set("onerror", onError)
+}
+
+func (i *IDB) sync(m Model) {
 	// FIXME: Save this as a member variable. Don't use the same value
 	// repeatedly.
 	maxLastUpdated := models.UnixTime(0)
 
 	db := i.db
-	t := db.Call("transaction", schema.Name, "readonly")
-	s := t.Call("objectStore", schema.Name)
+	t := m.Type()
+	tr := db.Call("transaction", t.Name(), "readonly")
+	s := tr.Call("objectStore", t.Name())
 	idx := s.Call("index", lastUpdatedIndex)
 	// FIXME: Use the openCursor iff |maxLastUpdated| == 0.
 	req := idx.Call("openCursor", nil, "prev")
@@ -235,12 +199,12 @@ func (i *IDB) sync(schema *Schema) {
 		req.Set("onsuccess", func(e js.Object) {
 			cursor := e.Get("target").Get("result")
 			if cursor.IsNull() {
-				i.sync2(schema, maxLastUpdated, values)
+				i.sync2(m, maxLastUpdated, values)
 				return
 			}
 			j := cursor.Get("value")
 			jStr := jsonStringify(j)
-			value := reflect.New(schema.Type).Interface()
+			value := reflect.New(t).Interface()
 			if err := json.Unmarshal([]byte(jStr), value); err != nil {
 				// TODO: Fix this
 				print(err.Error())
@@ -257,7 +221,7 @@ func (i *IDB) sync(schema *Schema) {
 }
 
 func (i *IDB) sync2(
-	schema *Schema,
+	m Model,
 	maxLastUpdated models.UnixTime,
 	values []interface{}) {
 	req := js.Global.Get("XMLHttpRequest").New()
@@ -276,6 +240,7 @@ func (i *IDB) sync2(
 			print(err.Error())
 			return
 		}
+		vals := []interface{}{}
 		for _, v := range res.Values {
 			v, ok := v.(*models.ItemData)
 			if !ok {
@@ -283,18 +248,20 @@ func (i *IDB) sync2(
 				print("invalid response")
 				return
 			}
-			if err := i.put(schema, v); err != nil {
+			if err := i.put(v); err != nil {
 				// TODO: Fix this
 				print(err.Error())
 				return
 			}
+			vals = append(vals, v)
 		}
+		m.OnLoaded(vals)
 	})
 	req.Set("onerror", func(e js.Object) {
 		// FIXME: implement this
 	})
 	request := models.SyncRequest{
-		Type:        schema.Name,
+		Type:        m.Type().Name(),
 		LastUpdated: maxLastUpdated,
 		Values:      values,
 	}

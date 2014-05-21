@@ -25,8 +25,9 @@ func (s *SyncRequest) UnmarshalJSON(b []byte) error {
 	}
 	s.Type = raw.Type
 	s.LastUpdated = raw.LastUpdated
+	// TODO: Is it possible to get a type from the type name?
 	switch s.Type {
-	case reflect.TypeOf(ItemData{}).Name():
+	case reflect.TypeOf((*ItemData)(nil)).Elem().Name():
 		values := []*ItemData{}
 		if err := json.Unmarshal(raw.RawValues, &values); err != nil {
 			return err
@@ -61,7 +62,7 @@ func (s *SyncResponse) UnmarshalJSON(b []byte) error {
 	s.Type = raw.Type
 	s.LastUpdated = raw.LastUpdated
 	switch s.Type {
-	case reflect.TypeOf(ItemData{}).Name():
+	case reflect.TypeOf((*ItemData)(nil)).Elem().Name():
 		values := []*ItemData{}
 		if err := json.Unmarshal(raw.RawValues, &values); err != nil {
 			return err

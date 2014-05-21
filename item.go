@@ -1,26 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"github.com/hajimehoshi/kakeibo/date"
-	"github.com/hajimehoshi/kakeibo/idb"
 	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
 	"reflect"
 )
 
-func init() {
-	// FIXME: Remove this
-	schemaSet.Add(&idb.Schema{
-		Type: reflect.TypeOf(models.ItemData{}),
-		Name: reflect.TypeOf(models.ItemData{}).Name(),
-	})
-}
-
 type Storage interface {
 	Save(interface{}) error
-	Load(name string, id uuid.UUID, callback func(val string)) error
-	LoadAll(name string, callback func(val []string)) error
 }
 
 type ItemView interface {
@@ -102,56 +90,44 @@ type Items struct {
 }
 
 func NewItems(view ItemView, storage Storage) *Items {
-	items := &Items{
+	return &Items{
 		items:   map[uuid.UUID]*Item{},
 		view:    view,
 		storage: storage,
 	}
-	items.storage.LoadAll(reflect.TypeOf(models.ItemData{}).Name(), items.onStorageItemsLoaded)
-	return items
 }
 
-func toItemData(val string) *models.ItemData {
-	var d models.ItemData
-	if err := json.Unmarshal([]byte(val), &d); err != nil {
-		print(err.Error())
-		return nil
-	}
-	return &d
+func (i *Items) Type() reflect.Type {
+	return reflect.TypeOf((*models.ItemData)(nil)).Elem()
 }
 
-func (i *Items) onStorageItemsLoaded(vals []string) {
+func (i *Items) OnLoaded(vals []interface{}) {
 	ids := []uuid.UUID{}
 	for _, v := range vals {
-		d := toItemData(v)
-		i.onItemLoaded(d)
-		ids = append(ids, d.Meta.ID)
+		d, ok := v.(*models.ItemData)
+		if !ok {
+			return
+		}
+		id := d.Meta.ID
+		if item, ok := i.items[id]; ok {
+			*item.data = *d
+			item.Print()
+			return
+		}
+		item := &Item{
+			data:    d,
+			view:    i.view,
+			storage: i.storage,
+		}
+		ids = append(ids, id)
+		i.items[id] = item
 	}
+	// FIXME
+	print(ids)
 	i.view.SetIDsToItemTable(ids)
 	for _, id := range ids {
-		item := i.items[id]
-		item.Print()
+		i.items[id].Print()
 	}
-}
-
-func (i *Items) onStorageItemLoaded(val string) {
-	i.onItemLoaded(toItemData(val))
-}
-
-func (i *Items) onItemLoaded(d *models.ItemData) {
-	id := d.Meta.ID
-	if item, ok := i.items[id]; ok {
-		*item.data = *d
-		item.Print()
-		return
-	}
-	item := &Item{
-		data:    d,
-		view:    i.view,
-		storage: i.storage,
-	}
-	i.items[id] = item
-	item.Print()
 }
 
 func (i *Items) New() *Item {
@@ -167,18 +143,7 @@ func (i *Items) Get(id uuid.UUID) *Item {
 	return nil
 }
 
-func (i *Items) GetItems(ids []uuid.UUID) []*Item {
-	items := []*Item{}
-	for _, id := range ids {
-		item := i.Get(id)
-		if item != nil {
-			items = append(items, item)
-		}
-	}
-	return items
-}
-
-func (i *Items) All() []*Item {
+func (i *Items) GetAll() []*Item {
 	result := []*Item{}
 	for _, item := range i.items {
 		result = append(result, item)
