@@ -4,8 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gopherjs/gopherjs/js"
+	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
+	"reflect"
+	//"sort"
 	"strconv"
 )
 
@@ -14,6 +17,32 @@ const (
 	datasetAttrID = "id"
 	datasetAttrKey = "key"
 )
+
+var (
+	numberTypes = []reflect.Type{
+		reflect.TypeOf((*int)(nil)).Elem(),
+		reflect.TypeOf((*int8)(nil)).Elem(),
+		reflect.TypeOf((*int16)(nil)).Elem(),
+		reflect.TypeOf((*int32)(nil)).Elem(),
+		reflect.TypeOf((*int64)(nil)).Elem(),
+		reflect.TypeOf((*uint)(nil)).Elem(),
+		reflect.TypeOf((*uint8)(nil)).Elem(),
+		reflect.TypeOf((*uint16)(nil)).Elem(),
+		reflect.TypeOf((*uint32)(nil)).Elem(),
+		reflect.TypeOf((*uint64)(nil)).Elem(),
+		reflect.TypeOf((*float32)(nil)).Elem(),
+		reflect.TypeOf((*float64)(nil)).Elem(),
+	}
+)
+
+func isNumberType(t reflect.Type) bool {
+	for _, nt := range numberTypes {
+		if t.ConvertibleTo(nt) {
+			return true
+		}
+	}
+	return false
+}
 
 func getIDElement(e js.Object) js.Object {
 	for {
@@ -75,17 +104,46 @@ func printValueAt(e js.Object, name string, value string) {
 
 type HTMLView struct{}
 
+func empty(e js.Object) {
+	for e.Call("hasChildNodes").Bool() {
+		e.Call("removeChild", e.Get("lastChild"))
+	}
+}
+
 func (p *HTMLView) OnInit(items *Items) {
 	document := js.Global.Get("document")
 	table := document.Call("getElementById", "table_items")
 	tbody := table.Call("getElementsByTagName", "tbody").Index(0)
-	for tbody.Call("hasChildNodes").Bool() {
-		tbody.Call("removeChild", tbody.Get("lastChild"))
-	}
+	empty(tbody)
 	for _, i := range items.GetAll() {
 		p.AddIDToItemTable(i.ID())
 		i.Print()
 	}
+	items.PrintYearMonths()
+}
+
+type sortDesc []date.Date
+
+func (s sortDesc) Len() int {
+	return len(([]date.Date)(s))
+}
+
+func (s sortDesc) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s sortDesc) Less(i, j int) bool {
+	return s[i] > s[j]
+}
+
+func (p *HTMLView) PrintYearMonths(yms []date.Date) {
+	document := js.Global.Get("document")
+	ul := document.Call("getElementById", "year_months")
+	empty(ul)
+	/*sort.Sort(yms)
+	for _, ym := range yms {
+		
+	}*/
 }
 
 func (p *HTMLView) PrintItem(data models.ItemData) {
@@ -96,9 +154,9 @@ func (p *HTMLView) PrintItem(data models.ItemData) {
 	elements := document.Call("querySelectorAll", query)
 	for i := 0; i < elements.Length(); i++ {
 		e := elements.Index(i)
-		printValueAt(e, "date", data.Date.String())
-		printValueAt(e, "subject", data.Subject)
-		printValueAt(e, "amount", strconv.Itoa(int(data.Amount)))
+		printValueAt(e, "Date", data.Date.String())
+		printValueAt(e, "Subject", data.Subject)
+		printValueAt(e, "Amount", strconv.Itoa(int(data.Amount)))
 	}
 }
 
@@ -113,6 +171,7 @@ func (p *HTMLView) AddIDToItemTable(id uuid.UUID) {
 	if p.isEditting(id) {
 		return
 	}
+	t := reflect.TypeOf((*models.ItemData)(nil)).Elem()
 
 	document := js.Global.Get("document")
 	table := document.Call("getElementById", "table_items")
@@ -123,22 +182,23 @@ func (p *HTMLView) AddIDToItemTable(id uuid.UUID) {
 	tr := document.Call("createElement", "tr")
 	tr.Get("dataset").Set(datasetAttrID, id.String())
 
-	td := document.Call("createElement", "td")
-	td.Get("dataset").Set(datasetAttrKey, "date")
-	tr.Call("appendChild", td)
-
-	td = document.Call("createElement", "td")
-	td.Get("dataset").Set(datasetAttrKey, "subject")
-	tr.Call("appendChild", td)
-
-	td = document.Call("createElement", "td")
-	td.Get("dataset").Set(datasetAttrKey, "amount")
-	tr.Call("appendChild", td)
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if f.Type == reflect.TypeOf((*models.Meta)(nil)).Elem() {
+			continue
+		}
+		td := document.Call("createElement", "td")
+		td.Get("dataset").Set(datasetAttrKey, f.Name)
+		if isNumberType(f.Type) {
+			td.Get("classList").Call("add", "number")
+		}
+		tr.Call("appendChild", td)
+	}
 
 	a := document.Call("createElement", "a")
 	a.Set("textContent", "Delete")
 	a.Call("setAttribute", "href", "")
-	td = document.Call("createElement", "td")
+	td := document.Call("createElement", "td")
 	td.Call("appendChild", a)
 	a.Set("onclick", clickLinkToDelete)
 	tr.Call("appendChild", td)

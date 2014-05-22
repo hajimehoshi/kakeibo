@@ -11,6 +11,10 @@ type Storage interface {
 	Save(interface{}) error
 }
 
+type ItemsView interface {
+	PrintYearMonths([]date.Date)
+}
+
 type ItemView interface {
 	PrintItem(data models.ItemData)
 	OnInit(items *Items)
@@ -84,16 +88,18 @@ func (i *Item) save() {
 }
 
 type Items struct {
-	items   map[uuid.UUID]*Item
-	view    ItemView
-	storage Storage
+	items     map[uuid.UUID]*Item
+	itemsView ItemsView
+	itemView  ItemView
+	storage   Storage
 }
 
-func NewItems(view ItemView, storage Storage) *Items {
+func NewItems(itemsView ItemsView, itemView ItemView, storage Storage) *Items {
 	return &Items{
-		items:   map[uuid.UUID]*Item{},
-		view:    view,
-		storage: storage,
+		items:     map[uuid.UUID]*Item{},
+		itemsView: itemsView,
+		itemView:  itemView,
+		storage:   storage,
 	}
 }
 
@@ -116,7 +122,7 @@ func (i *Items) OnLoaded(vals []interface{}) {
 		}
 		item := &Item{
 			data:    d,
-			view:    i.view,
+			view:    i.itemView,
 			storage: i.storage,
 		}
 		i.items[id] = item
@@ -126,11 +132,11 @@ func (i *Items) OnLoaded(vals []interface{}) {
 
 func (i *Items) OnInitialLoaded(vals []interface{}) {
 	i.OnLoaded(vals)
-	i.view.OnInit(i)
+	i.itemView.OnInit(i)
 }
 
 func (i *Items) New() *Item {
-	item := NewItem(i.view, i.storage)
+	item := NewItem(i.itemView, i.storage)
 	i.items[item.data.Meta.ID] = item
 	return item
 }
@@ -148,4 +154,20 @@ func (i *Items) GetAll() []*Item {
 		result = append(result, item)
 	}
 	return result
+}
+
+func (i *Items) PrintYearMonths() {
+	yms := map[date.Date]struct{}{}
+	for _, item := range i.items {
+		d := item.data.Date
+		y := d.Year()
+		m := d.Month()
+		yms[date.New(y, m, 1)] = struct{}{}
+	}
+
+	result := []date.Date{}
+	for ym, _ := range yms {
+		result = append(result, ym)
+	}
+	i.itemsView.PrintYearMonths(result)
 }

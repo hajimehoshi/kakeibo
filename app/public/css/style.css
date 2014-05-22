@@ -41,6 +41,9 @@ ol {
     list-style-position: outside;
     list-style-type: decimal;
 }
+td.number {
+    text-align: right;
+}
 
 /*
  * Fonts
@@ -92,6 +95,9 @@ body > section h3 {
     font-size: 14px;
     line-height: 24px;
     top: 7px;
+}
+th {
+    font-weight: bold;
 }
 
 /*
@@ -184,6 +190,16 @@ body > section {
 }
 .width4 {
     width: 872px;
+}
+
+/*
+ * Table
+ */
+td, th {
+    padding: 0 8px 0 0;
+}
+td:last-child, th:last-child {
+    padding: 0;
 }
 
 /*

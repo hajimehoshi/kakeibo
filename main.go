@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-//var schemaSet = idb.NewSchemaSet()
-
 var items *Items
 
 func printError(val interface{}) {
@@ -85,7 +83,7 @@ func ready() {
 	var view = &HTMLView{}
 	db := idb.New(dbName)
 
-	items = NewItems(view, db)
+	items = NewItems(view, view, db)
 	item := items.New()
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")

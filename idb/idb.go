@@ -25,6 +25,7 @@ type IDB struct {
 	name         string
 	initializing sync.Once
 	db           js.Object
+	lastUpdated  models.UnixTime
 	queue        []func()
 }
 
@@ -37,9 +38,10 @@ func onError(e js.Object) {
 
 func New(name string) *IDB {
 	idb := &IDB{
-		name:  name,
-		db:    nil,
-		queue: []func(){},
+		name:        name,
+		db:          nil,
+		lastUpdated: 0,
+		queue:       []func(){},
 	}
 	return idb
 }
@@ -174,7 +176,8 @@ func (i *IDB) init(models []Model) {
 
 func (i *IDB) sync(m Model) {
 	// FIXME: Save this as a member variable. Don't use the same value
-	// repeatedly.
+	// repeatedly. This is very important in terms of GAE restriction
+	// (Don't access the datastore too much).
 	maxLastUpdated := models.UnixTime(0)
 
 	db := i.db

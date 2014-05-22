@@ -24,14 +24,16 @@ func ParseISO8601(value string) (Date, error) {
 	return Date(t.Unix()), err
 }
 
+func (d Date) time() time.Time {
+	return time.Unix(int64(d), 0)
+}
+
 func (d Date) AddDate(years, months, days int) Date {
-	t := time.Unix(int64(d), 0)
-	return Date(t.AddDate(years, months, days).Unix())
+	return Date(d.time().AddDate(years, months, days).Unix())
 }
 
 func (d Date) String() string {
-	t := time.Unix(int64(d), 0)
-	return fmt.Sprintf("%04d-%02d-%02d", t.Year(), t.Month(), t.Day())
+	return fmt.Sprintf("%04d-%02d-%02d", d.Year(), d.Month(), d.Day())
 }
 
 func (d Date) MarshalText() ([]byte, error) {
@@ -41,4 +43,20 @@ func (d Date) MarshalText() ([]byte, error) {
 func (d *Date) UnmarshalText(text []byte) (err error) {
 	*d, err = ParseISO8601(string(text))
 	return
+}
+
+func (d Date) Date() (year int, month time.Month, day int) {
+	return d.Year(), d.Month(), d.Day()
+}
+
+func (d Date) Year() int {
+	return d.time().Year()
+}
+
+func (d Date) Month() time.Month {
+	return d.time().Month()
+}
+
+func (d Date) Day() int {
+	return d.time().Day()
 }
