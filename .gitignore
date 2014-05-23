@@ -2,4 +2,4 @@
 *.js.map
 app.yaml
 index.yaml
-app/public/scripts/main.js
+app/static/scripts/main.js
