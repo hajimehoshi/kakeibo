@@ -116,4 +116,22 @@ func ready() {
 		time.AfterFunc(60 * time.Second, sync)
 	}
 	sync()
+
+	debugLink := document.Call("getElementById", "debug_link")
+	debugLink.Set("onclick", func(e js.Object) {
+		e.Call("preventDefault")
+		d := document.Call("getElementById", "debug_overlay")
+		if d.Get("style").Get("display").Str() == "block" {
+			d.Get("style").Set("display", "none")
+		} else {
+			d.Get("style").Set("display", "block")
+		}
+	})
+
+	debugOverlay := document.Call("getElementById", "debug_overlay")
+	debugOverlay.Set("onclick", func(e js.Object) {
+		e.Call("preventDefault")
+		d := document.Call("getElementById", "debug_overlay")
+		d.Get("style").Set("display", "none")
+	})
 }
