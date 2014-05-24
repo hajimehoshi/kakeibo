@@ -8,7 +8,7 @@ import (
 	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
 	"reflect"
-	//"sort"
+	"sort"
 	"strconv"
 )
 
@@ -16,8 +16,15 @@ import (
 
 const (
 	// TODO: Rename data-id -> data-models-id?
-	datasetAttrID = "id"
+	datasetAttrID  = "id"
 	datasetAttrKey = "key"
+)
+
+type ViewMode int
+
+const (
+	ViewModeAll ViewMode = iota
+	ViewModeYearMonth
 )
 
 var (
@@ -104,7 +111,10 @@ func printValueAt(e js.Object, name string, value string) {
 	}
 }
 
-type HTMLView struct{}
+type HTMLView struct {
+	inited bool
+	queue  []func()
+}
 
 func empty(e js.Object) {
 	for e.Call("hasChildNodes").Bool() {
@@ -112,16 +122,42 @@ func empty(e js.Object) {
 	}
 }
 
-func (p *HTMLView) OnInit(items *Items) {
+func NewHTMLView() *HTMLView {
+	return &HTMLView{
+		inited: false,
+		queue:  []func(){},
+	}
+}
+
+func (p *HTMLView) UpdateMode(mode ViewMode, ym date.Date) {
+	if !p.inited {
+		p.queue = append(p.queue, func() {
+			p.UpdateMode(mode, ym)
+		})
+		return
+	}
 	document := js.Global.Get("document")
 	table := document.Call("getElementById", "table_items")
 	tbody := table.Call("getElementsByTagName", "tbody").Index(0)
 	empty(tbody)
-	for _, i := range items.GetAll() {
-		p.AddIDToItemTable(i.ID())
-		i.Print()
+
+	switch mode {
+	case ViewModeAll:
+		for _, i := range items.GetAll() {
+			p.AddIDToItemTable(i.ID())
+			i.Print()
+		}
+	case ViewModeYearMonth:
 	}
+}
+
+func (p *HTMLView) OnInit(items *Items) {
+	p.inited = true
 	items.PrintYearMonths()
+	for _, f := range p.queue {
+		f()
+	}
+	p.queue = []func(){}
 }
 
 type sortDesc []date.Date
@@ -142,10 +178,17 @@ func (p *HTMLView) PrintYearMonths(yms []date.Date) {
 	document := js.Global.Get("document")
 	ul := document.Call("getElementById", "year_months")
 	empty(ul)
-	/*sort.Sort(yms)
-	for _, ym := range yms {
-		
-	}*/
+	s := sortDesc(yms)
+	sort.Sort(s)
+	for _, ym := range s {
+		a := document.Call("createElement", "a")
+		date := fmt.Sprintf("%04d-%02d", ym.Year(), ym.Month())
+		a.Set("textContent", date)
+		a.Set("href", "#"+date)
+		li := document.Call("createElement", "li")
+		li.Call("appendChild", a)
+		ul.Call("appendChild", li)
+	}
 }
 
 func (p *HTMLView) PrintItem(data models.ItemData) {
@@ -219,7 +262,7 @@ func clickLinkToDelete(e js.Object) {
 	// TODO: Confirming if needed.
 	item := items.Get(id)
 	item.Destroy()
-	e2 := getIDElement(e.Get("target")) 
+	e2 := getIDElement(e.Get("target"))
 	if e2 != nil {
 		e2.Get("parentNode").Call("removeChild", e2)
 	}

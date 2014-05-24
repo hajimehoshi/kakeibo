@@ -97,6 +97,7 @@ func (i *IDB) loadAll(m Model) error {
 	req.Set("onsuccess", func(e js.Object) {
 		cursor := e.Get("target").Get("result")
 		if cursor.IsNull() {
+			// FIXME: If there is not entries, call this later?
 			m.OnInitialLoaded(values)
 			return
 		}

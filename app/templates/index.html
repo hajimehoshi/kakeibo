@@ -12,15 +12,17 @@
       <p>Hello, {{.UserEmail}}! (<a href="{{.LogoutURL}}">Logout</a>) (<a id="debug_link" href="#">Debug</a>)</p>
     </header>
     <nav>
+      <ul>
+        <li><a href="#">All</a></li>
+      </ul>
       <ul id="year_months">
-        <li>test</li>
       </ul>
     </nav>
     <section>
       <form id="form_item" method="post" data-id="">
-        <input name="date" type="date" value="" required="required" />
-        <input name="subject" type="text" placeholder="品名" value="" required="requied" />
-        <input name="amount" type="number" value="" required="required" />
+        <input name="Date" type="date" value="" required="required" />
+        <input name="Subject" type="text" placeholder="品名" value="" required="requied" />
+        <input name="Amount" type="number" placeholder="金額" value="" required="required" />
         <input type="submit" />
       </form>
       <table id="table_items">

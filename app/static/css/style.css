@@ -1,7 +1,7 @@
 /*
  * Reset
  */
-a, abbr, acronym, address, article, aside, audio, b, big, blockquote, body, caption, cite, code, dd, del, dfn, dialog, div, dl, dt, em, fieldset, figure, footer, form, h1, h2, h3, h4, h5, h6, header, hgroup, html, i, iframe, img, ins, kbd, label, legend, li, mark, menu, nav, object, ol, p, pre, q, samp, section, small, span, strong, sub, sup, table, tbody, td, tfoot, th, thead, time, tr, tt, ul, var, video {
+a, abbr, acronym, address, article, aside, audio, b, big, blockquote, body, caption, cite, code, dd, del, dfn, dialog, div, dl, dt, em, fieldset, figure, footer, form, h1, h2, h3, h4, h5, h6, header, hgroup, html, i, iframe, img, ins, input, kbd, label, legend, li, mark, menu, nav, object, ol, p, pre, q, samp, section, small, span, strong, sub, sup, table, tbody, td, tfoot, th, thead, time, tr, tt, ul, var, video {
     background: transparent;
     border: 0;
     margin:0;
@@ -28,30 +28,17 @@ html, body {
     height: 100%;
 }
 body > header p {
-    position: relative;
-    right: 0;
+    position: absolute;
+    right: 24px;
     text-align: right;
-    top: 0px; /* TODO: Fix this */
-}
-ul, ol {
-    margin-left: 1.5em;
-}
-ul {
-    list-style-position: outside;
-    list-style-type: disc;
-}
-ol {
-    list-style-position: outside;
-    list-style-type: decimal;
-}
-td.number {
-    text-align: right;
+    top: calc(6px + 24px);
 }
 
 /*
  * Fonts
  */
-body {
+body,
+input {
     font-family: 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif';
 }
 body > header h1 {
@@ -59,15 +46,22 @@ body > header h1 {
     font-weight: normal;
     /*font-stretch: condensed;*/
 }
+td.number,
+input[type=number] {
+    text-align: right;
+}
+th {
+    font-weight: bold;
+}
 
 /*
  * Baseline
  * line-height unit: 24px
  */
-address, caption, dialog, dl, h1, h2, h3, h4, h5, h6, ol, p, pre, ul {
+address, caption, dialog, dl, form, h1, h2, h3, h4, h5, h6, input, ol, p, pre, table, ul {
     position: relative;
 }
-address, caption, dialog, ol, p, pre, table, ul {
+address, caption, dialog, input, ol, p, pre, table, ul {
     font-size: 14px;
     line-height: 24px;
     text-align: justify;
@@ -76,7 +70,7 @@ address, caption, dialog, ol, p, pre, table, ul {
 body > header h1 {
     font-size: 20px;
     line-height: 24px;
-    top: 17px;
+    top: 28px;
 }
 body > nav h1 {
     font-size: 14px;
@@ -99,8 +93,27 @@ body > section h3 {
     line-height: 24px;
     top: 7px;
 }
-th {
-    font-weight: bold;
+form {
+    top: 0px;
+    margin-bottom: 8px;
+}
+input {
+    background-color: transparent;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+    line-height: 14px;
+    height: 36px;
+    margin-bottom: 3px;
+    overflow: visible;
+    top: 0px;
+    vertical-align: baseline;
+}
+table {
+}
+td, th {
+    height: 24px;
+    margin: 0;
+    padding: 0;
 }
 
 /*
@@ -115,7 +128,7 @@ body > header {
     color: #fff;
 }
 body > nav {
-    background-color: #eee;
+    background-color: #eeeef2;
 }
 a:link {
     color: #222;
@@ -132,6 +145,10 @@ a:active {
 body > header a {
     color: #fff !important;
 }
+body > nav a {
+    color: #333 !important;
+    text-decoration: none;
+}
 
 /*
  * Layout
@@ -144,19 +161,22 @@ body > section {
     padding-left: 24px;
     padding-right: 24px;
 }
+body > header {
+    height: 60px;
+}
 body > nav,
 body > section {
-    height: calc(100% - 48px);
+    height: calc(100% - 60px);
     overflow: auto;
-    padding-bottom: 24px;
-    padding-top: 24px;
+    padding-bottom: 12px;
+    padding-top: 12px;
 }
 body > nav {
     width: 240px;
 }
 body > section {
     position: absolute;
-    top: 48px;
+    top: 60px;
     left: 240px;
     width: calc(100% - 240px);
 }
@@ -194,11 +214,53 @@ body > section {
 /*
  * Table
  */
+table {
+    border-collapse: collapse;
+}
 td, th {
-    padding: 0 8px 0 0;
+    padding: 0 24px 0 0;
 }
 td:last-child, th:last-child {
     padding: 0;
+}
+
+/*
+ * List
+ */
+ul, ol {
+    margin-left: 1.5em;
+}
+ul {
+    list-style-position: outside;
+    list-style-type: disc;
+}
+ol {
+    list-style-position: outside;
+    list-style-type: decimal;
+}
+body > nav ul {
+    list-style: none;
+    margin-left: 0;
+}
+body > nav ul:nth-child(n+2) {
+    margin-top: 24px;
+}
+
+/*
+ * Form
+ */
+input {
+    border-color: #ccc;
+    border-style: solid;
+    border-width: 0 0 1px 0;
+    margin-right: 24px;
+    width: 200px; /* FIXME */
+}
+input[type=submit] {
+    border-width: 1px;
+    padding-left: 24px;
+    padding-right: 24px;
+    width: auto;
 }
 
 /*

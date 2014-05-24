@@ -17,7 +17,7 @@ func printError(val interface{}) {
 }
 
 func addEventListeners(form js.Object) {
-	inputDate := form.Call("querySelector", "input[name=date]")
+	inputDate := form.Call("querySelector", "input[name=Date]")
 	inputDate.Set("onchange", func(e js.Object) {
 		id, err := getIDFromElement(e.Get("target"))
 		if err != nil {
@@ -34,7 +34,7 @@ func addEventListeners(form js.Object) {
 		}
 		item.UpdateDate(d)
 	})
-	inputSubject := form.Call("querySelector", "input[name=subject]")
+	inputSubject := form.Call("querySelector", "input[name=Subject]")
 	inputSubject.Set("onchange", func(e js.Object) {
 		id, err := getIDFromElement(e.Get("target"))
 		if err != nil {
@@ -46,7 +46,7 @@ func addEventListeners(form js.Object) {
 		subject := e.Get("target").Get("value").Str()
 		item.UpdateSubject(subject)
 	})
-	inputMoneyAmount := form.Call("querySelector", "input[name=amount]")
+	inputMoneyAmount := form.Call("querySelector", "input[name=Amount]")
 	inputMoneyAmount.Set("onchange", func(e js.Object) {
 		id, err := getIDFromElement(e.Get("target"))
 		if err != nil {
@@ -79,13 +79,15 @@ func main() {
 	deleteDBIfUserChanged(dbName, ready)
 }
 
+var view = NewHTMLView()
+
 func ready() {
-	var view = &HTMLView{}
 	db := idb.New(dbName)
+
+	document := js.Global.Get("document")
 
 	items = NewItems(view, view, db)
 	item := items.New()
-	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
 	addEventListeners(form)
 	form.Set("onsubmit", func(e js.Object) {
@@ -118,20 +120,45 @@ func ready() {
 	sync()
 
 	debugLink := document.Call("getElementById", "debug_link")
-	debugLink.Set("onclick", func(e js.Object) {
-		e.Call("preventDefault")
-		d := document.Call("getElementById", "debug_overlay")
-		if d.Get("style").Get("display").Str() == "block" {
-			d.Get("style").Set("display", "none")
-		} else {
-			d.Get("style").Set("display", "block")
-		}
-	})
+	debugLink.Set("onclick", toggleDebugOverlay)
 
 	debugOverlay := document.Call("getElementById", "debug_overlay")
-	debugOverlay.Set("onclick", func(e js.Object) {
-		e.Call("preventDefault")
-		d := document.Call("getElementById", "debug_overlay")
+	debugOverlay.Set("onclick", toggleDebugOverlay)
+
+	js.Global.Get("window").Set("onhashchange", onHashChange)
+	js.Global.Get("window").Call("onhashchange")
+}
+
+func toggleDebugOverlay(e js.Object) {
+	e.Call("preventDefault")
+	d := js.Global.Get("document").Call("getElementById", "debug_overlay")
+	if d.Get("style").Get("display").Str() == "block" {
 		d.Get("style").Set("display", "none")
-	})
+		return
+	}
+	d.Get("style").Set("display", "block")
+}
+
+func onHashChange(e js.Object) {
+	hash := js.Global.Get("location").Get("hash").Str()
+	// Remove the initial '#'
+	if 1 <= len(hash) {
+		hash = hash[1:]
+	}
+	if hash == "" {
+		href := js.Global.Get("location").Get("href").Str()
+		if 0 < len(href) && href[len(href)-1] == '#' {
+			href = href[:len(href)-2]
+			js.Global.Get("history").Call(
+				"replaceState", "", "", href)
+		}
+		view.UpdateMode(ViewModeAll, date.Date(0))
+		return
+	}
+	ym, err := date.ParseISO8601(hash + "-01")
+	if err != nil {
+		printError(err.Error())
+		return
+	}
+	view.UpdateMode(ViewModeYearMonth, ym)
 }
