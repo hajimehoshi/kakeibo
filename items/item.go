@@ -43,14 +43,6 @@ func (i *Item) UpdateAmount(amount models.MoneyAmount) {
 	i.Print()
 }
 
-func (i *Item) Destroy() {
-	meta := i.data.Meta
-	meta.LastUpdated = models.UnixTime(0)
-	meta.IsDeleted = true
-	i.data = &models.ItemData{Meta: meta}
-	i.save()
-}
-
 func (i *Item) Print() {
 	if i.view == nil {
 		return

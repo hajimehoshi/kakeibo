@@ -9,7 +9,6 @@ import (
 	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
 	"reflect"
-	"sort"
 	"strconv"
 )
 
@@ -23,13 +22,6 @@ const (
 	// TODO: Rename data-id -> data-models-id?
 	datasetAttrID  = "id"
 	datasetAttrKey = "key"
-)
-
-type ViewMode int
-
-const (
-	ViewModeAll ViewMode = iota
-	ViewModeYearMonth
 )
 
 var (
@@ -161,10 +153,8 @@ func addEventListeners(items *items.Items, form js.Object) {
 }
 
 type HTMLView struct {
-	items     *items.Items
-	queue     []func()
-	mode      ViewMode
-	yearMonth date.Date
+	items *items.Items
+	queue []func()
 }
 
 func empty(e js.Object) {
@@ -175,57 +165,54 @@ func empty(e js.Object) {
 
 func NewHTMLView() *HTMLView {
 	v := &HTMLView{
-		items:     nil,
-		queue:     []func(){},
-		mode:      ViewModeAll,
-		yearMonth: date.Date(0),
+		items: nil,
+		queue: []func(){},
 	}
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
-	
-	form.Set("onsubmit", func(e js.Object) {
-		e.Call("preventDefault")
-		if !v.isInited() {
-			return
-		}
-		form := e.Get("target")
-		id, err := getIDFromElement(form)
-		if err != nil {
-			printError(err.Error())
-			return
-		}
-		if err := v.items.Save(id); err != nil {
-			printError(err.Error())
-			return
-		}
-
-		// FIXME: Before saving an item, the form's item should be
-		// changed?
-		newItem := v.items.New()
-		form.Get("dataset").Set(datasetAttrID, newItem.ID().String())
-		newItem.Print()
-	})
+	form.Set("onsubmit", v.onSubmit)
 
 	return v
+}
+
+func (v *HTMLView) onSubmit(e js.Object) {
+	e.Call("preventDefault")
+	if !v.isInited() {
+		return
+	}
+	form := e.Get("target")
+	id, err := getIDFromElement(form)
+	if err != nil {
+		printError(err.Error())
+		return
+	}
+	if err := v.items.Save(id); err != nil {
+		printError(err.Error())
+		return
+	}
+
+	// FIXME: Before saving an item, the form's item should be
+	// changed?
+	newItem := v.items.New()
+	form.Get("dataset").Set(datasetAttrID, newItem.ID().String())
+	newItem.Print()
 }
 
 func (v *HTMLView) isInited() bool {
 	return v.items != nil
 }
 
-func (v *HTMLView) UpdateMode(mode ViewMode, ym date.Date) {
-	v.mode = mode
-	v.yearMonth = ym
+func (v *HTMLView) UpdateMode(mode items.Mode, ym date.Date) {
 	if !v.isInited() {
 		v.queue = append(v.queue, func() {
 			v.UpdateMode(mode, ym)
 		})
 		return
 	}
-	v.PrintItems()
+	v.items.UpdateMode(mode, ym)
 }
 
-type sortItemsByDate []*items.Item
+/*type sortItemsByDate []*items.Item
 
 func (t sortItemsByDate) Len() int {
 	return len(([]*items.Item)(t))
@@ -237,34 +224,20 @@ func (t sortItemsByDate) Swap(i, j int) {
 
 func (t sortItemsByDate) Less(i, j int) bool {
 	return false
-}
+}*/
 
-func (v *HTMLView) PrintItems() {
+func (v *HTMLView) PrintItems(ids []uuid.UUID) {
 	document := js.Global.Get("document")
 	table := document.Call("getElementById", "table_items")
 	tbody := table.Call("getElementsByTagName", "tbody").Index(0)
 	empty(tbody)
-	
-	// FIXME: sort
-	switch v.mode {
-	case ViewModeAll:
-		for _, i := range v.items.GetAll() {
-			v.addIDToItemTable(i.ID())
-			i.Print()
-		}
-	case ViewModeYearMonth:
-		ym := v.yearMonth
-		is := v.items.GetYearMonth(ym.Year(), ym.Month())
-		for _, i := range is {
-			v.addIDToItemTable(i.ID())
-			i.Print()
-		}
+	for _, id := range ids {
+		v.addIDToItemTable(id)
 	}
 }
 
 func (v *HTMLView) OnInit(items *items.Items) {
 	v.items = items
-	items.PrintYearMonths()
 	for _, f := range v.queue {
 		f()
 	}
@@ -273,34 +246,16 @@ func (v *HTMLView) OnInit(items *items.Items) {
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
 	addEventListeners(items, form)
-
 	item := items.New()
 	form.Get("dataset").Set(datasetAttrID, item.ID().String())
 	item.Print()
-}
-
-// TODO: Move this to items
-type sortDateDesc []date.Date
-
-func (s sortDateDesc) Len() int {
-	return len(([]date.Date)(s))
-}
-
-func (s sortDateDesc) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-
-func (s sortDateDesc) Less(i, j int) bool {
-	return s[i] > s[j]
 }
 
 func (v *HTMLView) PrintYearMonths(yms []date.Date) {
 	document := js.Global.Get("document")
 	ul := document.Call("getElementById", "year_months")
 	empty(ul)
-	s := sortDateDesc(yms)
-	sort.Sort(s)
-	for _, ym := range s {
+	for _, ym := range yms {
 		a := document.Call("createElement", "a")
 		date := fmt.Sprintf("%04d-%02d", ym.Year(), ym.Month())
 		a.Set("textContent", date)
@@ -365,14 +320,14 @@ func (v *HTMLView) addIDToItemTable(id uuid.UUID) {
 	a.Call("setAttribute", "href", "")
 	td := document.Call("createElement", "td")
 	td.Call("appendChild", a)
-	a.Set("onclick", v.clickLinkToDelete)
+	a.Set("onclick", v.onClickToDelete)
 	tr.Call("appendChild", td)
 
 	tbody := table.Call("getElementsByTagName", "tbody").Index(0)
 	tbody.Call("appendChild", tr)
 }
 
-func (v *HTMLView) clickLinkToDelete(e js.Object) {
+func (v *HTMLView) onClickToDelete(e js.Object) {
 	e.Call("preventDefault")
 	id, err := getIDFromElement(e.Get("target"))
 	if err != nil {
@@ -380,10 +335,8 @@ func (v *HTMLView) clickLinkToDelete(e js.Object) {
 		return
 	}
 	// TODO: Confirming if needed.
-	item := v.items.Get(id)
-	item.Destroy()
-	e2 := getIDElement(e.Get("target"))
-	if e2 != nil {
-		e2.Get("parentNode").Call("removeChild", e2)
+	if err := v.items.Destroy(id); err != nil {
+		printError(err.Error())
+		return
 	}
 }

@@ -84,7 +84,7 @@ func onHashChange(v *view.HTMLView, e js.Object) {
 			js.Global.Get("history").Call(
 				"replaceState", "", "", href)
 		}
-		v.UpdateMode(view.ViewModeAll, date.Date(0))
+		v.UpdateMode(items.ModeAll, date.Date(0))
 		return
 	}
 	ym, err := date.ParseISO8601(hash + "-01")
@@ -92,5 +92,5 @@ func onHashChange(v *view.HTMLView, e js.Object) {
 		printError(err.Error())
 		return
 	}
-	v.UpdateMode(view.ViewModeYearMonth, ym)
+	v.UpdateMode(items.ModeYearMonth, ym)
 }
