@@ -6,6 +6,7 @@ import (
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/idb"
+	"github.com/hajimehoshi/kakeibo/items"
 	"time"
 )
 
@@ -38,7 +39,7 @@ func ready() {
 	db := idb.New(dbName)
 
 	view = NewHTMLView()
-	items := NewItems(view, view, db)
+	items := items.New(view, view, db)
 	
 	var sync func()
 	sync = func() {

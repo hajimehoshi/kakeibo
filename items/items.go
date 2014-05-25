@@ -1,4 +1,4 @@
-package main
+package items
 
 import (
 	"errors"
@@ -23,66 +23,6 @@ type ItemView interface {
 	OnInit(items *Items)
 }
 
-type Item struct {
-	data    *models.ItemData
-	view    ItemView
-	storage Storage
-}
-
-func NewItem(view ItemView, storage Storage) *Item {
-	return &Item{
-		data: &models.ItemData{
-			Meta: models.NewMeta(),
-			Date: date.Today(),
-		},
-		view:    view,
-		storage: storage,
-	}
-}
-
-func (i *Item) ID() uuid.UUID {
-	return i.data.Meta.ID
-}
-
-func (i *Item) UpdateDate(date date.Date) {
-	i.data.Date = date
-	i.Print()
-}
-
-func (i *Item) UpdateSubject(subject string) {
-	i.data.Subject = subject
-	i.Print()
-}
-
-func (i *Item) UpdateAmount(amount models.MoneyAmount) {
-	i.data.Amount = amount
-	i.Print()
-}
-
-func (i *Item) Destroy() {
-	meta := i.data.Meta
-	meta.LastUpdated = models.UnixTime(0)
-	meta.IsDeleted = true
-	i.data = &models.ItemData{Meta: meta}
-	i.save()
-}
-
-func (i *Item) Print() {
-	if i.view == nil {
-		return
-	}
-	i.view.PrintItem(*i.data)
-}
-
-func (i *Item) save() error {
-	i.data.Meta.LastUpdated = models.UnixTime(0)
-	i.Print()
-	if i.storage == nil {
-		return nil
-	}
-	return i.storage.Save(i.data)
-}
-
 type Items struct {
 	items     map[uuid.UUID]*Item
 	itemsView ItemsView
@@ -90,7 +30,7 @@ type Items struct {
 	storage   Storage
 }
 
-func NewItems(itemsView ItemsView, itemView ItemView, storage Storage) *Items {
+func New(itemsView ItemsView, itemView ItemView, storage Storage) *Items {
 	return &Items{
 		items:     map[uuid.UUID]*Item{},
 		itemsView: itemsView,

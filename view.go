@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/hajimehoshi/kakeibo/date"
+	"github.com/hajimehoshi/kakeibo/items"
 	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
 	"reflect"
@@ -111,7 +112,7 @@ func printValueAt(e js.Object, name string, value string) {
 	}
 }
 
-func addEventListeners(items *Items, form js.Object) {
+func addEventListeners(items *items.Items, form js.Object) {
 	inputDate := form.Call("querySelector", "input[name=Date]")
 	inputDate.Set("onchange", func(e js.Object) {
 		id, err := getIDFromElement(e.Get("target"))
@@ -156,7 +157,7 @@ func addEventListeners(items *Items, form js.Object) {
 }
 
 type HTMLView struct {
-	items     *Items
+	items     *items.Items
 	queue     []func()
 	mode      ViewMode
 	yearMonth date.Date
@@ -221,10 +222,10 @@ func (v *HTMLView) UpdateMode(mode ViewMode, ym date.Date) {
 	v.PrintItems()
 }
 
-type sortItemsByDate []*Item
+type sortItemsByDate []*items.Item
 
 func (t sortItemsByDate) Len() int {
-	return len(([]*Item)(t))
+	return len(([]*items.Item)(t))
 }
 
 func (t sortItemsByDate) Swap(i, j int) {
@@ -258,7 +259,7 @@ func (v *HTMLView) PrintItems() {
 	}
 }
 
-func (v *HTMLView) OnInit(items *Items) {
+func (v *HTMLView) OnInit(items *items.Items) {
 	v.items = items
 	items.PrintYearMonths()
 	for _, f := range v.queue {
@@ -275,6 +276,7 @@ func (v *HTMLView) OnInit(items *Items) {
 	item.Print()
 }
 
+// TODO: Move this to items
 type sortDateDesc []date.Date
 
 func (s sortDateDesc) Len() int {
