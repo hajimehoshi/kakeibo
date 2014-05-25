@@ -116,15 +116,16 @@ func addEventListeners(items *items.Items, form js.Object) {
 			printError(err.Error())
 			return
 		}
-		item := items.Get(id)
-
 		dateStr := e.Get("target").Get("value").Str()
 		d, err := date.ParseISO8601(dateStr)
 		if err != nil {
 			printError(err.Error())
 			return
 		}
-		item.UpdateDate(d)
+		if err := items.UpdateDate(id, d); err != nil {
+			printError(err.Error())
+			return
+		}
 	})
 	inputSubject := form.Call("querySelector", "input[name=Subject]")
 	inputSubject.Set("onchange", func(e js.Object) {
@@ -133,10 +134,11 @@ func addEventListeners(items *items.Items, form js.Object) {
 			printError(err.Error())
 			return
 		}
-		item := items.Get(id)
-
 		subject := e.Get("target").Get("value").Str()
-		item.UpdateSubject(subject)
+		if err := items.UpdateSubject(id, subject); err != nil {
+			printError(err.Error())
+			return
+		}
 	})
 	inputMoneyAmount := form.Call("querySelector", "input[name=Amount]")
 	inputMoneyAmount.Set("onchange", func(e js.Object) {
@@ -145,10 +147,11 @@ func addEventListeners(items *items.Items, form js.Object) {
 			printError(err.Error())
 			return
 		}
-		item := items.Get(id)
-
-		amount := e.Get("target").Get("value").Int()
-		item.UpdateAmount(models.MoneyAmount(amount))
+		amount := models.MoneyAmount(e.Get("target").Get("value").Int())
+		if err := items.UpdateAmount(id, amount); err != nil {
+			printError(err.Error())
+			return
+		}
 	})
 }
 
@@ -172,7 +175,34 @@ func NewHTMLView() *HTMLView {
 	form := document.Call("getElementById", "form_item")
 	form.Set("onsubmit", v.onSubmit)
 
+	js.Global.Get("window").Set("onhashchange", v.onHashChange)
+	js.Global.Get("window").Call("onhashchange")
+
 	return v
+}
+
+func (v *HTMLView) onHashChange(e js.Object) {
+	hash := js.Global.Get("location").Get("hash").Str()
+	// Remove the initial '#'
+	if 1 <= len(hash) {
+		hash = hash[1:]
+	}
+	if hash == "" {
+		href := js.Global.Get("location").Get("href").Str()
+		if 0 < len(href) && href[len(href)-1] == '#' {
+			href = href[:len(href)-2]
+			js.Global.Get("history").Call(
+				"replaceState", "", "", href)
+		}
+		v.UpdateMode(items.ModeAll, date.Date(0))
+		return
+	}
+	ym, err := date.ParseISO8601(hash + "-01")
+	if err != nil {
+		printError(err.Error())
+		return
+	}
+	v.UpdateMode(items.ModeYearMonth, ym)
 }
 
 func (v *HTMLView) onSubmit(e js.Object) {
@@ -193,9 +223,8 @@ func (v *HTMLView) onSubmit(e js.Object) {
 
 	// FIXME: Before saving an item, the form's item should be
 	// changed?
-	newItem := v.items.New()
-	form.Get("dataset").Set(datasetAttrID, newItem.ID().String())
-	newItem.Print()
+	id = v.items.New()
+	form.Get("dataset").Set(datasetAttrID, id.String())
 }
 
 func (v *HTMLView) isInited() bool {
@@ -211,20 +240,6 @@ func (v *HTMLView) UpdateMode(mode items.Mode, ym date.Date) {
 	}
 	v.items.UpdateMode(mode, ym)
 }
-
-/*type sortItemsByDate []*items.Item
-
-func (t sortItemsByDate) Len() int {
-	return len(([]*items.Item)(t))
-}
-
-func (t sortItemsByDate) Swap(i, j int) {
-	t[i], t[j] = t[j], t[i]
-}
-
-func (t sortItemsByDate) Less(i, j int) bool {
-	return false
-}*/
 
 func (v *HTMLView) PrintItems(ids []uuid.UUID) {
 	document := js.Global.Get("document")
@@ -246,9 +261,8 @@ func (v *HTMLView) OnInit(items *items.Items) {
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
 	addEventListeners(items, form)
-	item := items.New()
-	form.Get("dataset").Set(datasetAttrID, item.ID().String())
-	item.Print()
+	id := items.New()
+	form.Get("dataset").Set(datasetAttrID, id.String())
 }
 
 func (v *HTMLView) PrintYearMonths(yms []date.Date) {

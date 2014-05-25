@@ -3,16 +3,15 @@ package items
 import (
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/models"
-	"github.com/hajimehoshi/kakeibo/uuid"
 )
 
 type Item struct {
 	data    *models.ItemData
-	view    ItemView
+	view    ItemsView
 	storage Storage
 }
 
-func NewItem(view ItemView, storage Storage) *Item {
+func NewItem(view ItemsView, storage Storage) *Item {
 	return &Item{
 		data: &models.ItemData{
 			Meta: models.NewMeta(),
@@ -23,27 +22,22 @@ func NewItem(view ItemView, storage Storage) *Item {
 	}
 }
 
-// TODO: Remove this getter
-func (i *Item) ID() uuid.UUID {
-	return i.data.Meta.ID
-}
-
-func (i *Item) UpdateDate(date date.Date) {
+func (i *Item) updateDate(date date.Date) {
 	i.data.Date = date
-	i.Print()
+	i.print()
 }
 
-func (i *Item) UpdateSubject(subject string) {
+func (i *Item) updateSubject(subject string) {
 	i.data.Subject = subject
-	i.Print()
+	i.print()
 }
 
-func (i *Item) UpdateAmount(amount models.MoneyAmount) {
+func (i *Item) updateAmount(amount models.MoneyAmount) {
 	i.data.Amount = amount
-	i.Print()
+	i.print()
 }
 
-func (i *Item) Print() {
+func (i *Item) print() {
 	if i.view == nil {
 		return
 	}
@@ -52,7 +46,7 @@ func (i *Item) Print() {
 
 func (i *Item) save() error {
 	i.data.Meta.LastUpdated = models.UnixTime(0)
-	i.Print()
+	i.print()
 	if i.storage == nil {
 		return nil
 	}

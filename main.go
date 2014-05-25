@@ -4,7 +4,6 @@ package main
 
 import (
 	"github.com/gopherjs/gopherjs/js"
-	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/idb"
 	"github.com/hajimehoshi/kakeibo/items"
 	"github.com/hajimehoshi/kakeibo/view"
@@ -38,7 +37,7 @@ func ready() {
 	db := idb.New(dbName)
 
 	v := view.NewHTMLView()
-	items := items.New(v, v, db)
+	items := items.New(v, db)
 	
 	var sync func()
 	sync = func() {
@@ -54,11 +53,6 @@ func ready() {
 
 	debugOverlay := document.Call("getElementById", "debug_overlay")
 	debugOverlay.Set("onclick", toggleDebugOverlay)
-
-	js.Global.Get("window").Set("onhashchange", func(e js.Object) {
-		onHashChange(v, e)
-	})
-	js.Global.Get("window").Call("onhashchange")
 }
 
 func toggleDebugOverlay(e js.Object) {
@@ -69,28 +63,4 @@ func toggleDebugOverlay(e js.Object) {
 		return
 	}
 	d.Get("style").Set("display", "block")
-}
-
-func onHashChange(v *view.HTMLView, e js.Object) {
-	hash := js.Global.Get("location").Get("hash").Str()
-	// Remove the initial '#'
-	if 1 <= len(hash) {
-		hash = hash[1:]
-	}
-	if hash == "" {
-		href := js.Global.Get("location").Get("href").Str()
-		if 0 < len(href) && href[len(href)-1] == '#' {
-			href = href[:len(href)-2]
-			js.Global.Get("history").Call(
-				"replaceState", "", "", href)
-		}
-		v.UpdateMode(items.ModeAll, date.Date(0))
-		return
-	}
-	ym, err := date.ParseISO8601(hash + "-01")
-	if err != nil {
-		printError(err.Error())
-		return
-	}
-	v.UpdateMode(items.ModeYearMonth, ym)
 }

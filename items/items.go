@@ -15,12 +15,9 @@ type Storage interface {
 
 type ItemsView interface {
 	PrintItems(ids []uuid.UUID)
+	PrintItem(data models.ItemData)
 	PrintYearMonths([]date.Date)
 	OnInit(items *Items)
-}
-
-type ItemView interface {
-	PrintItem(data models.ItemData)
 }
 
 type Mode int
@@ -32,20 +29,19 @@ const (
 
 // TODO: Should this have 'mode'?
 type Items struct {
-	items     map[uuid.UUID]*Item
-	itemsView ItemsView
-	itemView  ItemView
-	storage   Storage
-	mode      Mode
-	yearMonth date.Date
+	items       map[uuid.UUID]*Item
+	view        ItemsView
+	storage     Storage
+	mode        Mode
+	yearMonth   date.Date
+	editingItem *Item
 }
 
-func New(itemsView ItemsView, itemView ItemView, storage Storage) *Items {
+func New(view ItemsView, storage Storage) *Items {
 	return &Items{
-		items:     map[uuid.UUID]*Item{},
-		itemsView: itemsView,
-		itemView:  itemView,
-		storage:   storage,
+		items:   map[uuid.UUID]*Item{},
+		view:    view,
+		storage: storage,
 	}
 }
 
@@ -63,35 +59,60 @@ func (i *Items) OnLoaded(vals []interface{}) {
 		id := d.Meta.ID
 		if item, ok := i.items[id]; ok {
 			*item.data = *d
-			item.Print()
+			item.print()
 			continue
 		}
 		item := &Item{
 			data:    d,
-			view:    i.itemView,
+			view:    i.view,
 			storage: i.storage,
 		}
 		i.items[id] = item
-		item.Print()
+		item.print()
 	}
 	i.printYearMonths()
 }
 
 func (i *Items) OnInitialLoaded(vals []interface{}) {
 	i.OnLoaded(vals)
-	i.itemsView.OnInit(i)
+	i.view.OnInit(i)
 }
 
-// TODO: Make this private
-func (i *Items) New() *Item {
-	item := NewItem(i.itemView, i.storage)
+func (i *Items) New() uuid.UUID {
+	item := NewItem(i.view, i.storage)
 	i.items[item.data.Meta.ID] = item
-	i.printYearMonths()
-	return item
+	return item.data.Meta.ID
+}
+
+func (i *Items) UpdateDate(id uuid.UUID, date date.Date) error {
+	item := i.get(id)
+	if item == nil {
+		return errors.New("Items.Save: item not found")
+	}
+	item.updateDate(date)
+	return nil
+}
+
+func (i *Items) UpdateSubject(id uuid.UUID, subject string) error {
+	item := i.get(id)
+	if item == nil {
+		return errors.New("Items.Save: item not found")
+	}
+	item.updateSubject(subject)
+	return nil
+}
+
+func (i *Items) UpdateAmount(id uuid.UUID, amount models.MoneyAmount) error {
+	item := i.get(id)
+	if item == nil {
+		return errors.New("Items.Save: item not found")
+	}
+	item.updateAmount(amount)
+	return nil
 }
 
 func (i *Items) Save(id uuid.UUID) error {
-	item := i.Get(id)
+	item := i.get(id)
 	if item == nil {
 		return errors.New("Items.Save: item not found")
 	}
@@ -103,9 +124,8 @@ func (i *Items) Save(id uuid.UUID) error {
 	return nil
 }
 
-
 func (i *Items) Destroy(id uuid.UUID) error {
-	item := i.Get(id)
+	item := i.get(id)
 	if item == nil {
 		return errors.New("Items.Save: item not found")
 	}
@@ -131,6 +151,20 @@ func (i *Items) UpdateMode(mode Mode, ym date.Date) {
 	}
 }
 
+/*type sortItemsByDate []*items.Item
+
+func (t sortItemsByDate) Len() int {
+	return len(([]*items.Item)(t))
+}
+
+func (t sortItemsByDate) Swap(i, j int) {
+	t[i], t[j] = t[j], t[i]
+}
+
+func (t sortItemsByDate) Less(i, j int) bool {
+	return false
+}*/
+
 func (i *Items) printAllItems() {
 	ids := []uuid.UUID{}
 	for _, item := range i.items {
@@ -139,9 +173,9 @@ func (i *Items) printAllItems() {
 		}
 		ids = append(ids, item.data.Meta.ID)
 	}
-	i.itemsView.PrintItems(ids)
+	i.view.PrintItems(ids)
 	for _, id := range ids {
-		i.Get(id).Print()
+		i.get(id).print()
 	}
 }
 
@@ -158,13 +192,13 @@ func (i *Items) printYearMonthItems() {
 		}
 		ids = append(ids, item.data.Meta.ID)
 	}
-	i.itemsView.PrintItems(ids)
+	i.view.PrintItems(ids)
 	for _, id := range ids {
-		i.Get(id).Print()
+		i.get(id).print()
 	}
 }
 
-func (i *Items) Get(id uuid.UUID) *Item {
+func (i *Items) get(id uuid.UUID) *Item {
 	if item, ok := i.items[id]; ok {
 		return item
 	}
@@ -203,5 +237,5 @@ func (i *Items) printYearMonths() {
 	}
 	s := sortDateDesc(result)
 	sort.Sort(s)
-	i.itemsView.PrintYearMonths(result)
+	i.view.PrintYearMonths(result)
 }
