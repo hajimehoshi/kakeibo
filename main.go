@@ -7,6 +7,7 @@ import (
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/idb"
 	"github.com/hajimehoshi/kakeibo/items"
+	"github.com/hajimehoshi/kakeibo/view"
 	"time"
 )
 
@@ -33,13 +34,11 @@ func main() {
 	deleteDBIfUserChanged(dbName, ready)
 }
 
-var view *HTMLView
-
 func ready() {
 	db := idb.New(dbName)
 
-	view = NewHTMLView()
-	items := items.New(view, view, db)
+	v := view.NewHTMLView()
+	items := items.New(v, v, db)
 	
 	var sync func()
 	sync = func() {
@@ -56,7 +55,9 @@ func ready() {
 	debugOverlay := document.Call("getElementById", "debug_overlay")
 	debugOverlay.Set("onclick", toggleDebugOverlay)
 
-	js.Global.Get("window").Set("onhashchange", onHashChange)
+	js.Global.Get("window").Set("onhashchange", func(e js.Object) {
+		onHashChange(v, e)
+	})
 	js.Global.Get("window").Call("onhashchange")
 }
 
@@ -70,7 +71,7 @@ func toggleDebugOverlay(e js.Object) {
 	d.Get("style").Set("display", "block")
 }
 
-func onHashChange(e js.Object) {
+func onHashChange(v *view.HTMLView, e js.Object) {
 	hash := js.Global.Get("location").Get("hash").Str()
 	// Remove the initial '#'
 	if 1 <= len(hash) {
@@ -83,7 +84,7 @@ func onHashChange(e js.Object) {
 			js.Global.Get("history").Call(
 				"replaceState", "", "", href)
 		}
-		view.UpdateMode(ViewModeAll, date.Date(0))
+		v.UpdateMode(view.ViewModeAll, date.Date(0))
 		return
 	}
 	ym, err := date.ParseISO8601(hash + "-01")
@@ -91,5 +92,5 @@ func onHashChange(e js.Object) {
 		printError(err.Error())
 		return
 	}
-	view.UpdateMode(ViewModeYearMonth, ym)
+	v.UpdateMode(view.ViewModeYearMonth, ym)
 }

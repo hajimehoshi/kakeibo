@@ -1,4 +1,4 @@
-package main
+package view
 
 import (
 	"errors"
@@ -12,6 +12,10 @@ import (
 	"sort"
 	"strconv"
 )
+
+func printError(val interface{}) {
+	js.Global.Get("console").Call("error", val)
+}
 
 // TODO: I18N
 
@@ -176,7 +180,6 @@ func NewHTMLView() *HTMLView {
 		mode:      ViewModeAll,
 		yearMonth: date.Date(0),
 	}
-	// TODO: ?
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
 	
