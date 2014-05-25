@@ -12,6 +12,16 @@ import (
 	"strconv"
 )
 
+type Items interface {
+	New() uuid.UUID
+	UpdateDate(id uuid.UUID, date date.Date) error
+	UpdateSubject(id uuid.UUID, subject string) error
+	UpdateAmount(id uuid.UUID, amount models.MoneyAmount) error
+	Save(id uuid.UUID) error
+	Destroy(id uuid.UUID) error
+	UpdateMode(mode items.Mode, ym date.Date)
+}
+
 func printError(val interface{}) {
 	js.Global.Get("console").Call("error", val)
 }
@@ -108,7 +118,7 @@ func printValueAt(e js.Object, name string, value string) {
 	}
 }
 
-func addEventListeners(items *items.Items, form js.Object) {
+func addEventListeners(items Items, form js.Object) {
 	inputDate := form.Call("querySelector", "input[name=Date]")
 	inputDate.Set("onchange", func(e js.Object) {
 		id, err := getIDFromElement(e.Get("target"))
@@ -156,7 +166,7 @@ func addEventListeners(items *items.Items, form js.Object) {
 }
 
 type HTMLView struct {
-	items *items.Items
+	items Items
 	queue []func()
 }
 
@@ -168,7 +178,6 @@ func empty(e js.Object) {
 
 func NewHTMLView() *HTMLView {
 	v := &HTMLView{
-		items: nil,
 		queue: []func(){},
 	}
 	document := js.Global.Get("document")

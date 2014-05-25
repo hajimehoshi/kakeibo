@@ -34,7 +34,7 @@ type Items struct {
 	storage     Storage
 	mode        Mode
 	yearMonth   date.Date
-	editingItem *Item
+	//editingItem *Item
 }
 
 func New(view ItemsView, storage Storage) *Items {
