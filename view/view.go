@@ -13,7 +13,6 @@ import (
 )
 
 type Items interface {
-	New() uuid.UUID
 	UpdateDate(id uuid.UUID, date date.Date) error
 	UpdateSubject(id uuid.UUID, subject string) error
 	UpdateAmount(id uuid.UUID, amount models.MoneyAmount) error
@@ -229,10 +228,11 @@ func (v *HTMLView) onSubmit(e js.Object) {
 		printError(err.Error())
 		return
 	}
+}
 
-	// FIXME: Before saving an item, the form's item should be
-	// changed?
-	id = v.items.New()
+func (v *HTMLView) SetEdittingItem(id uuid.UUID) {
+	document := js.Global.Get("document")
+	form := document.Call("getElementById", "form_item")
 	form.Get("dataset").Set(datasetAttrID, id.String())
 }
 
@@ -270,8 +270,6 @@ func (v *HTMLView) OnInit(items *items.Items) {
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
 	addEventListeners(items, form)
-	id := items.New()
-	form.Get("dataset").Set(datasetAttrID, id.String())
 }
 
 func (v *HTMLView) PrintYearMonths(yms []date.Date) {
@@ -303,17 +301,7 @@ func (v *HTMLView) PrintItem(data models.ItemData) {
 	}
 }
 
-func (v *HTMLView) isEditting(id uuid.UUID) bool {
-	document := js.Global.Get("document")
-	form := document.Call("getElementById", "form_item")
-	i := form.Get("dataset").Get(datasetAttrID).Str()
-	return i == id.String()
-}
-
 func (v *HTMLView) addIDToItemTable(id uuid.UUID) {
-	if v.isEditting(id) {
-		return
-	}
 	t := reflect.TypeOf((*models.ItemData)(nil)).Elem()
 
 	document := js.Global.Get("document")

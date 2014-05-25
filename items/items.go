@@ -14,6 +14,7 @@ type Storage interface {
 }
 
 type ItemsView interface {
+	SetEdittingItem(id uuid.UUID)
 	PrintItems(ids []uuid.UUID)
 	PrintItem(data models.ItemData)
 	PrintYearMonths([]date.Date)
@@ -34,7 +35,7 @@ type Items struct {
 	storage     Storage
 	mode        Mode
 	yearMonth   date.Date
-	//editingItem *Item
+	editingItem *Item
 }
 
 func New(view ItemsView, storage Storage) *Items {
@@ -76,18 +77,34 @@ func (i *Items) OnLoaded(vals []interface{}) {
 func (i *Items) OnInitialLoaded(vals []interface{}) {
 	i.OnLoaded(vals)
 	i.view.OnInit(i)
+	i.createEdittingItem()
 }
 
-func (i *Items) New() uuid.UUID {
-	item := NewItem(i.view, i.storage)
-	i.items[item.data.Meta.ID] = item
-	return item.data.Meta.ID
+func (i *Items) createEdittingItem() error {
+	item := newItem(i.view, i.storage)
+	i.editingItem = item
+	id := item.data.Meta.ID
+	i.items[id] = item
+	i.view.SetEdittingItem(id)
+	if err := i.Print(id); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (i *Items) Print(id uuid.UUID) error {
+	item := i.get(id)
+	if item == nil {
+		return errors.New("Items.Print: item not found")
+	}
+	item.print()
+	return nil
 }
 
 func (i *Items) UpdateDate(id uuid.UUID, date date.Date) error {
 	item := i.get(id)
 	if item == nil {
-		return errors.New("Items.Save: item not found")
+		return errors.New("Items.UpdateDate: item not found")
 	}
 	item.updateDate(date)
 	return nil
@@ -96,7 +113,7 @@ func (i *Items) UpdateDate(id uuid.UUID, date date.Date) error {
 func (i *Items) UpdateSubject(id uuid.UUID, subject string) error {
 	item := i.get(id)
 	if item == nil {
-		return errors.New("Items.Save: item not found")
+		return errors.New("Items.UpdateSubject: item not found")
 	}
 	item.updateSubject(subject)
 	return nil
@@ -105,7 +122,7 @@ func (i *Items) UpdateSubject(id uuid.UUID, subject string) error {
 func (i *Items) UpdateAmount(id uuid.UUID, amount models.MoneyAmount) error {
 	item := i.get(id)
 	if item == nil {
-		return errors.New("Items.Save: item not found")
+		return errors.New("Items.UpdateAmount: item not found")
 	}
 	item.updateAmount(amount)
 	return nil
@@ -120,6 +137,10 @@ func (i *Items) Save(id uuid.UUID) error {
 	if err := item.save(); err != nil {
 		return err
 	}
+	if i.editingItem == item {
+		i.createEdittingItem()
+	}
+	i.printItems()
 	i.printYearMonths()
 	return nil
 }
@@ -143,6 +164,10 @@ func (i *Items) Destroy(id uuid.UUID) error {
 func (i *Items) UpdateMode(mode Mode, ym date.Date) {
 	i.mode = mode
 	i.yearMonth = ym
+	i.printItems()
+}
+
+func (i *Items) printItems() {
 	switch i.mode {
 	case ModeAll:
 		i.printAllItems()
@@ -171,6 +196,9 @@ func (i *Items) printAllItems() {
 		if item.data.Meta.IsDeleted {
 			continue
 		}
+		if item == i.editingItem {
+			continue
+		}
 		ids = append(ids, item.data.Meta.ID)
 	}
 	i.view.PrintItems(ids)
@@ -184,6 +212,9 @@ func (i *Items) printYearMonthItems() {
 	ids := []uuid.UUID{}
 	for _, item := range i.items {
 		if item.data.Meta.IsDeleted {
+			continue
+		}
+		if item == i.editingItem {
 			continue
 		}
 		d := item.data.Date

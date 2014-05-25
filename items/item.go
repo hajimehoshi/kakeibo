@@ -11,7 +11,7 @@ type Item struct {
 	storage Storage
 }
 
-func NewItem(view ItemsView, storage Storage) *Item {
+func newItem(view ItemsView, storage Storage) *Item {
 	return &Item{
 		data: &models.ItemData{
 			Meta: models.NewMeta(),
