@@ -6,58 +6,11 @@ import (
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/idb"
-	"github.com/hajimehoshi/kakeibo/models"
 	"time"
 )
 
-var items *Items
-
 func printError(val interface{}) {
 	js.Global.Get("console").Call("error", val)
-}
-
-func addEventListeners(form js.Object) {
-	inputDate := form.Call("querySelector", "input[name=Date]")
-	inputDate.Set("onchange", func(e js.Object) {
-		id, err := getIDFromElement(e.Get("target"))
-		if err != nil {
-			printError(err.Error())
-			return
-		}
-		item := items.Get(id)
-
-		dateStr := e.Get("target").Get("value").Str()
-		d, err := date.ParseISO8601(dateStr)
-		if err != nil {
-			printError(err.Error())
-			return
-		}
-		item.UpdateDate(d)
-	})
-	inputSubject := form.Call("querySelector", "input[name=Subject]")
-	inputSubject.Set("onchange", func(e js.Object) {
-		id, err := getIDFromElement(e.Get("target"))
-		if err != nil {
-			printError(err.Error())
-			return
-		}
-		item := items.Get(id)
-
-		subject := e.Get("target").Get("value").Str()
-		item.UpdateSubject(subject)
-	})
-	inputMoneyAmount := form.Call("querySelector", "input[name=Amount]")
-	inputMoneyAmount.Set("onchange", func(e js.Object) {
-		id, err := getIDFromElement(e.Get("target"))
-		if err != nil {
-			printError(err.Error())
-			return
-		}
-		item := items.Get(id)
-
-		amount := e.Get("target").Get("value").Int()
-		item.UpdateAmount(models.MoneyAmount(amount))
-	})
 }
 
 func deleteDBIfUserChanged(name string, callback func()) {
@@ -79,45 +32,22 @@ func main() {
 	deleteDBIfUserChanged(dbName, ready)
 }
 
-var view = NewHTMLView()
+var view *HTMLView
 
 func ready() {
 	db := idb.New(dbName)
 
-	document := js.Global.Get("document")
-
-	items = NewItems(view, view, db)
-	item := items.New()
-	form := document.Call("getElementById", "form_item")
-	addEventListeners(form)
-	form.Set("onsubmit", func(e js.Object) {
-		e.Call("preventDefault")
-		form := e.Get("target")
-		id, err := getIDFromElement(form)
-		if err != nil {
-			printError(err.Error())
-			return
-		}
-		item := items.Get(id)
-		// TODO: validation here?
-		item.Save()
-
-		newItem := items.New()
-		form.Get("dataset").Set(datasetAttrID, newItem.ID().String())
-		newItem.Print()
-
-		view.AddIDToItemTable(item.ID())
-		items.Get(id).Print()
-	})
-	form.Get("dataset").Set(datasetAttrID, item.ID().String())
-	item.Print()
-
+	view = NewHTMLView()
+	items := NewItems(view, view, db)
+	
 	var sync func()
 	sync = func() {
 		db.Sync([]idb.Model{items})
 		time.AfterFunc(60 * time.Second, sync)
 	}
 	sync()
+
+	document := js.Global.Get("document")
 
 	debugLink := document.Call("getElementById", "debug_link")
 	debugLink.Set("onclick", toggleDebugOverlay)

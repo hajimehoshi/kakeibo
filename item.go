@@ -1,10 +1,12 @@
 package main
 
 import (
+	"errors"
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
 	"reflect"
+	"time"
 )
 
 type Storage interface {
@@ -12,6 +14,7 @@ type Storage interface {
 }
 
 type ItemsView interface {
+	PrintItems()
 	PrintYearMonths([]date.Date)
 }
 
@@ -56,18 +59,12 @@ func (i *Item) UpdateAmount(amount models.MoneyAmount) {
 	i.Print()
 }
 
-func (i *Item) Save() {
-	i.data.Meta.LastUpdated = models.UnixTime(0)
-	i.Print()
-	i.save()
-}
-
 func (i *Item) Destroy() {
 	meta := i.data.Meta
 	meta.LastUpdated = models.UnixTime(0)
 	meta.IsDeleted = true
 	i.data = &models.ItemData{Meta: meta}
-	i.Save()
+	i.save()
 }
 
 func (i *Item) Print() {
@@ -77,14 +74,13 @@ func (i *Item) Print() {
 	i.view.PrintItem(*i.data)
 }
 
-func (i *Item) save() {
+func (i *Item) save() error {
+	i.data.Meta.LastUpdated = models.UnixTime(0)
+	i.Print()
 	if i.storage == nil {
-		return
+		return nil
 	}
-	err := i.storage.Save(i.data)
-	if err != nil {
-		print(err.Error())
-	}
+	return i.storage.Save(i.data)
 }
 
 type Items struct {
@@ -128,6 +124,7 @@ func (i *Items) OnLoaded(vals []interface{}) {
 		i.items[id] = item
 		item.Print()
 	}
+	i.PrintYearMonths()
 }
 
 func (i *Items) OnInitialLoaded(vals []interface{}) {
@@ -138,7 +135,21 @@ func (i *Items) OnInitialLoaded(vals []interface{}) {
 func (i *Items) New() *Item {
 	item := NewItem(i.itemView, i.storage)
 	i.items[item.data.Meta.ID] = item
+	i.PrintYearMonths()
 	return item
+}
+
+func (i *Items) Save(id uuid.UUID) error {
+	item := i.Get(id)
+	if item == nil {
+		return errors.New("Items.Save: item not found")
+	}
+	// TODO: Validation here
+	if err := item.save(); err != nil {
+		return err
+	}
+	i.itemsView.PrintItems()
+	return nil
 }
 
 func (i *Items) Get(id uuid.UUID) *Item {
@@ -151,6 +162,24 @@ func (i *Items) Get(id uuid.UUID) *Item {
 func (i *Items) GetAll() []*Item {
 	result := []*Item{}
 	for _, item := range i.items {
+		if item.data.Meta.IsDeleted {
+			continue
+		}
+		result = append(result, item)
+	}
+	return result
+}
+
+func (i *Items) GetYearMonth(year int, month time.Month) []*Item {
+	result := []*Item{}
+	for _, item := range i.items {
+		if item.data.Meta.IsDeleted {
+			continue
+		}
+		d := item.data.Date
+		if d.Year() != year || d.Month() != month {
+			continue
+		}
 		result = append(result, item)
 	}
 	return result
@@ -159,6 +188,9 @@ func (i *Items) GetAll() []*Item {
 func (i *Items) PrintYearMonths() {
 	yms := map[date.Date]struct{}{}
 	for _, item := range i.items {
+		if item.data.Meta.IsDeleted {
+			continue
+		}
 		d := item.data.Date
 		y := d.Year()
 		m := d.Month()
