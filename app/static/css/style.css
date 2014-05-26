@@ -46,6 +46,9 @@ body > header h1 {
     font-weight: normal;
     /*font-stretch: condensed;*/
 }
+body > section h1 {
+    /*font-weight: bold;*/
+}
 td.number,
 input[type=number] {
     text-align: right;
@@ -78,10 +81,10 @@ body > nav h1 {
     top: 7px;
 }
 body > section h1 {
-    font-size: 28px;
-    line-height: 48px;
+    font-size: 20px;
+    line-height: 24px;
     margin-bottom: 24px;
-    top: -10px;
+    top: 5px;
 }
 body > section h2 {
     font-size: 18px;
@@ -261,6 +264,28 @@ input[type=submit] {
     padding-left: 24px;
     padding-right: 24px;
     width: auto;
+}
+
+/*
+ * Print
+ */
+@media print {
+    body > header {
+        display: none;
+    }
+    body > nav {
+        display: none;
+    }
+    body > section {
+        height: auto;
+        left: 0;
+        position: relative:
+        top: 0;
+        width: auto;
+    }
+    #form_item {
+        display: none;
+    }
 }
 
 /*

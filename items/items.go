@@ -2,6 +2,7 @@ package items
 
 import (
 	"errors"
+	"fmt"
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
@@ -15,7 +16,9 @@ type Storage interface {
 
 type ItemsView interface {
 	SetEdittingItem(id uuid.UUID)
+	PrintTitle(title string)
 	PrintItems(ids []uuid.UUID)
+	PrintTotal(total models.MoneyAmount)
 	PrintItem(data models.ItemData)
 	PrintYearMonths([]date.Date)
 	OnInit(items *Items)
@@ -157,13 +160,26 @@ func (i *Items) Destroy(id uuid.UUID) error {
 	if err := item.save(); err != nil {
 		return err
 	}
+	i.printItems()
 	i.printYearMonths()
 	return nil
+}
+
+func (i *Items) title() string {
+	switch i.mode {
+	case ModeAll:
+		return "All"
+	case ModeYearMonth:
+		ym := i.yearMonth
+		return fmt.Sprintf("%04d-%02d", ym.Year(), ym.Month())
+	}
+	panic("not reach")
 }
 
 func (i *Items) UpdateMode(mode Mode, ym date.Date) {
 	i.mode = mode
 	i.yearMonth = ym
+	i.view.PrintTitle(i.title())
 	i.printItems()
 }
 
@@ -176,19 +192,27 @@ func (i *Items) printItems() {
 	}
 }
 
-/*type sortItemsByDate []*items.Item
-
-func (t sortItemsByDate) Len() int {
-	return len(([]*items.Item)(t))
+type sortItemsByDate struct {
+	items *Items
+	ids   []uuid.UUID
 }
 
-func (t sortItemsByDate) Swap(i, j int) {
-	t[i], t[j] = t[j], t[i]
+func (s sortItemsByDate) Len() int {
+	return len(([]uuid.UUID)(s.ids))
 }
 
-func (t sortItemsByDate) Less(i, j int) bool {
-	return false
-}*/
+func (s sortItemsByDate) Swap(i, j int) {
+	s.ids[i], s.ids[j] = s.ids[j], s.ids[i]
+}
+
+func (s sortItemsByDate) Less(i, j int) bool {
+	i1 := s.items.get(s.ids[i])
+	i2 := s.items.get(s.ids[j])
+	if i1.data.Date != i2.data.Date {
+		return i1.data.Date < i2.data.Date
+	}
+	return i1.data.Subject < i2.data.Subject
+}
 
 func (i *Items) printAllItems() {
 	ids := []uuid.UUID{}
@@ -201,6 +225,8 @@ func (i *Items) printAllItems() {
 		}
 		ids = append(ids, item.data.Meta.ID)
 	}
+	s := sortItemsByDate{i, ids}
+	sort.Sort(s)
 	i.view.PrintItems(ids)
 	for _, id := range ids {
 		i.get(id).print()
@@ -210,6 +236,7 @@ func (i *Items) printAllItems() {
 func (i *Items) printYearMonthItems() {
 	ym := i.yearMonth
 	ids := []uuid.UUID{}
+	total := models.MoneyAmount(0)
 	for _, item := range i.items {
 		if item.data.Meta.IsDeleted {
 			continue
@@ -222,11 +249,15 @@ func (i *Items) printYearMonthItems() {
 			continue
 		}
 		ids = append(ids, item.data.Meta.ID)
+		total += item.data.Amount
 	}
+	s := sortItemsByDate{i, ids}
+	sort.Sort(s)
 	i.view.PrintItems(ids)
 	for _, id := range ids {
 		i.get(id).print()
 	}
+	i.view.PrintTotal(total)
 }
 
 func (i *Items) get(id uuid.UUID) *Item {

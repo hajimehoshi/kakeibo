@@ -195,22 +195,23 @@ func (v *HTMLView) onHashChange(e js.Object) {
 	if 1 <= len(hash) {
 		hash = hash[1:]
 	}
-	if hash == "" {
+	switch hash {
+	case "":
 		href := js.Global.Get("location").Get("href").Str()
 		if 0 < len(href) && href[len(href)-1] == '#' {
 			href = href[:len(href)-2]
 			js.Global.Get("history").Call(
 				"replaceState", "", "", href)
 		}
-		v.UpdateMode(items.ModeAll, date.Date(0))
-		return
+		v.updateMode(items.ModeAll, date.Date(0))
+	default:
+		ym, err := date.ParseISO8601(hash + "-01")
+		if err != nil {
+			printError(err.Error())
+			return
+		}
+		v.updateMode(items.ModeYearMonth, ym)
 	}
-	ym, err := date.ParseISO8601(hash + "-01")
-	if err != nil {
-		printError(err.Error())
-		return
-	}
-	v.UpdateMode(items.ModeYearMonth, ym)
 }
 
 func (v *HTMLView) onSubmit(e js.Object) {
@@ -240,14 +241,20 @@ func (v *HTMLView) isInited() bool {
 	return v.items != nil
 }
 
-func (v *HTMLView) UpdateMode(mode items.Mode, ym date.Date) {
+func (v *HTMLView) updateMode(mode items.Mode, ym date.Date) {
 	if !v.isInited() {
 		v.queue = append(v.queue, func() {
-			v.UpdateMode(mode, ym)
+			v.updateMode(mode, ym)
 		})
 		return
 	}
 	v.items.UpdateMode(mode, ym)
+}
+
+func (v *HTMLView) PrintTitle(title string) {
+	document := js.Global.Get("document")
+	h1 := document.Call("querySelector", "body > section h1")
+	h1.Set("textContent", title)
 }
 
 func (v *HTMLView) PrintItems(ids []uuid.UUID) {
@@ -258,6 +265,33 @@ func (v *HTMLView) PrintItems(ids []uuid.UUID) {
 	for _, id := range ids {
 		v.addIDToItemTable(id)
 	}
+}
+
+func (v *HTMLView) PrintTotal(total models.MoneyAmount) {
+	document := js.Global.Get("document")
+	table := document.Call("getElementById", "table_items")
+	tbody := table.Call("getElementsByTagName", "tbody").Index(0)
+
+	tr := document.Call("createElement", "tr")
+
+	td := document.Call("createElement", "td")
+	td.Set("textContent", "")
+	tr.Call("appendChild", td)
+
+	td = document.Call("createElement", "td")
+	td.Set("textContent", "(Total)")
+	tr.Call("appendChild", td)
+
+	td = document.Call("createElement", "td")
+	td.Set("textContent", strconv.Itoa(int(total)))
+	td.Get("classList").Call("add", "number")
+	tr.Call("appendChild", td)
+
+	td = document.Call("createElement", "td")
+	td.Set("textContent", "")
+	tr.Call("appendChild", td)
+
+	tbody.Call("appendChild", tr)
 }
 
 func (v *HTMLView) OnInit(items *items.Items) {
