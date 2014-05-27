@@ -42,7 +42,7 @@ func ready() {
 	var sync func()
 	sync = func() {
 		db.SyncIfNeeded([]idb.Model{items})
-		time.AfterFunc(20 * time.Second, sync) 
+		time.AfterFunc(10 * time.Second, sync) 
 	}
 	sync()
 

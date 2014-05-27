@@ -19,7 +19,6 @@ const (
 type Model interface {
 	Type() reflect.Type
 	OnLoaded(vals []interface{})
-	OnInitialLoaded(vals []interface{})
 }
 
 type IDB struct {
@@ -113,8 +112,9 @@ func (i *IDB) loadAll(m Model) error {
 	req.Set("onsuccess", func(e js.Object) {
 		cursor := e.Get("target").Get("result")
 		if cursor.IsNull() {
-			// FIXME: If there is not entries, call this later?
-			m.OnInitialLoaded(values)
+			if 0 < len(values) {
+				m.OnLoaded(values)
+			}
 			return
 		}
 		value := cursor.Get("value")
@@ -138,6 +138,7 @@ func (i *IDB) loadAll(m Model) error {
 
 func (i *IDB) SyncIfNeeded(models []Model) {
 	if !i.isReady() {
+		// FIXME: Pass |models| anywhere but here
 		i.initializing.Do(func() {
 			i.init(models)
 		})
@@ -195,9 +196,6 @@ func (i *IDB) init(models []Model) {
 }
 
 func (i *IDB) sync(m Model) {
-	// FIXME: Save this as a member variable. Don't use the same value
-	// repeatedly. This is very important in terms of GAE restriction
-	// (Don't access the datastore too much).
 	maxLastUpdated := models.UnixTime(0)
 
 	db := i.db
@@ -205,14 +203,14 @@ func (i *IDB) sync(m Model) {
 	tr := db.Call("transaction", t.Name(), "readonly")
 	s := tr.Call("objectStore", t.Name())
 	idx := s.Call("index", lastUpdatedIndex)
-	// FIXME: Use the openCursor iff |maxLastUpdated| == 0.
 	req := idx.Call("openCursor", nil, "prev")
 	req.Set("onsuccess", func(e js.Object) {
 		cursor := e.Get("target").Get("result")
 		if !cursor.IsNull() {
 			value := cursor.Get("value")
 			l := value.Get("Meta").Get("LastUpdated").Str()
-			if err := maxLastUpdated.UnmarshalText([]byte(l)); err != nil {
+			if err := maxLastUpdated.UnmarshalText([]byte(l));
+			err != nil {
 				i.onError(err)
 				return
 			}
@@ -228,7 +226,8 @@ func (i *IDB) sync(m Model) {
 			j := cursor.Get("value")
 			jStr := jsonStringify(j)
 			value := reflect.New(t).Interface()
-			if err := json.Unmarshal([]byte(jStr), value); err != nil {
+			if err := json.Unmarshal([]byte(jStr), value);
+			err != nil {
 				i.onError(err)
 				cursor.Call("continue")
 				return

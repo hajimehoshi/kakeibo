@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/kakeibo/uuid"
 	"reflect"
 	"sort"
+	"sync"
 )
 
 type Storage interface {
@@ -33,12 +34,13 @@ const (
 
 // TODO: Should this have 'mode'?
 type Items struct {
-	items       map[uuid.UUID]*Item
-	view        ItemsView
-	storage     Storage
-	mode        Mode
-	yearMonth   date.Date
-	editingItem *Item
+	items         map[uuid.UUID]*Item
+	view          ItemsView
+	storage       Storage
+	mode          Mode
+	yearMonth     date.Date
+	editingItem   *Item
+	initialLoaded sync.Once
 }
 
 func New(view ItemsView, storage Storage) *Items {
@@ -75,12 +77,10 @@ func (i *Items) OnLoaded(vals []interface{}) {
 		item.print()
 	}
 	i.printYearMonths()
-}
-
-func (i *Items) OnInitialLoaded(vals []interface{}) {
-	i.OnLoaded(vals)
-	i.view.OnInit(i)
-	i.createEdittingItem()
+	i.initialLoaded.Do(func() {
+		i.view.OnInit(i)
+		i.createEdittingItem()
+	})
 }
 
 func (i *Items) createEdittingItem() error {
