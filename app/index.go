@@ -12,8 +12,8 @@ import (
 	"html/template"
 	"io/ioutil"
 	"net/http"
-	"time"
 	"reflect"
+	"time"
 )
 
 const (
@@ -26,10 +26,9 @@ var (
 
 var tmpl *template.Template
 
-// FIXME: Add user restriction
 func init() {
-	http.HandleFunc("/sync", handleSync)
-	http.HandleFunc("/", handleIndex)
+	http.HandleFunc("/sync", filterUsers(handleSync))
+	http.HandleFunc("/", filterUsers(handleIndex))
 
 	var err error
 	tmpl, err = template.ParseFiles("templates/index.html")
