@@ -293,7 +293,7 @@ func (i *Items) printYearMonths() {
 		yms[date.New(y, m, 1)] = struct{}{}
 	}
 
-	result := []date.Date{}
+	result := make([]date.Date, 0, len(yms))
 	for ym, _ := range yms {
 		result = append(result, ym)
 	}

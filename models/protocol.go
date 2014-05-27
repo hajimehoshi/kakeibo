@@ -32,6 +32,7 @@ func (s *SyncRequest) UnmarshalJSON(b []byte) error {
 		if err := json.Unmarshal(raw.RawValues, &values); err != nil {
 			return err
 		}
+		s.Values = make([]interface{}, 0, len(values))
 		for _, v := range values {
 			s.Values = append(s.Values, v)
 		}
@@ -67,6 +68,7 @@ func (s *SyncResponse) UnmarshalJSON(b []byte) error {
 		if err := json.Unmarshal(raw.RawValues, &values); err != nil {
 			return err
 		}
+		s.Values = make([]interface{}, 0, len(values))
 		for _, v := range values {
 			s.Values = append(s.Values, v)
 		}

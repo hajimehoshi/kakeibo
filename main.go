@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-func printError(val interface{}) {
-	js.Global.Get("console").Call("error", val)
+func printError(err error) {
+	js.Global.Get("console").Call("error", err.Error())
 }
 
 func deleteDBIfUserChanged(name string, callback func()) {
@@ -34,7 +34,7 @@ func main() {
 }
 
 func ready() {
-	db := idb.New(dbName)
+	db := idb.New(dbName, printError)
 
 	v := view.NewHTMLView()
 	items := items.New(v, db)

@@ -4,6 +4,7 @@ package idb
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/hajimehoshi/kakeibo/models"
@@ -23,27 +24,41 @@ type Model interface {
 
 type IDB struct {
 	name         string
+	onErrorFunc  func(error)
 	initializing sync.Once
 	db           js.Object
 	lastUpdated  models.UnixTime
 	queue        []func()
 }
 
-func onError(e js.Object) {
-	err := e.Get("target").Get("error")
-	name := err.Get("name").Str()
-	msg := err.Get("message").Str()
-	print(fmt.Sprintf("%s: %s", name, msg))
-}
-
-func New(name string) *IDB {
+func New(name string, onErrorFunc func(error)) *IDB {
 	idb := &IDB{
 		name:        name,
+		onErrorFunc: onErrorFunc,
 		db:          nil,
 		lastUpdated: 0,
 		queue:       []func(){},
 	}
 	return idb
+}
+
+func (i *IDB) onError(err error) {
+	if i.onErrorFunc == nil {
+		return
+	}
+	i.onErrorFunc(err)
+}
+
+func (i *IDB) jsOnError(e js.Object) {
+	jsErr := e.Get("error")
+	name := jsErr.Get("name").Str()
+	msg := jsErr.Get("message").Str()
+	err := errors.New(fmt.Sprintf("idb: %s: %s", name, msg))
+	i.onError(err)
+}
+
+func (i *IDB) idxOnError(e js.Object) {
+	i.jsOnError(e.Get("target"))
 }
 
 func (i *IDB) isReady() bool {
@@ -72,7 +87,7 @@ func (i *IDB) put(v interface{}) error {
 	tr := db.Call("transaction", t.Name(), "readwrite")
 	s := tr.Call("objectStore", t.Name())
 	req := s.Call("put", j)
-	req.Set("onerror", onError)
+	req.Set("onerror", i.idxOnError)
 	return nil
 }
 
@@ -109,14 +124,13 @@ func (i *IDB) loadAll(m Model) error {
 		v := reflect.New(t).Interface()
 		j := jsonStringify(value)
 		if err := json.Unmarshal([]byte(j), v); err != nil {
-			// TODO: fix this
-			print(err.Error())
+			i.onError(err)
 			return
 		}
 		values = append(values, v)
 		cursor.Call("continue")
 	})
-	req.Set("onerror", onError)
+	req.Set("onerror", i.idxOnError)
 
 	return nil
 }
@@ -161,7 +175,7 @@ func (i *IDB) init(models []Model) {
 	})
 	req.Set("onsuccess", func(e js.Object) {
 		i.db = e.Get("target").Get("result")
-		i.db.Set("onerror", onError)
+		i.db.Set("onerror", i.idxOnError)
 
 		for _, m := range models {
 			i.loadAll(m)
@@ -172,7 +186,7 @@ func (i *IDB) init(models []Model) {
 		}
 		i.queue = []func(){}
 	})
-	req.Set("onerror", onError)
+	req.Set("onerror", i.idxOnError)
 }
 
 func (i *IDB) sync(m Model) {
@@ -194,8 +208,7 @@ func (i *IDB) sync(m Model) {
 			value := cursor.Get("value")
 			l := value.Get("Meta").Get("LastUpdated").Str()
 			if err := maxLastUpdated.UnmarshalText([]byte(l)); err != nil {
-				// TODO: Fix this
-				print(err.Error())
+				i.onError(err)
 				return
 			}
 		}
@@ -211,8 +224,7 @@ func (i *IDB) sync(m Model) {
 			jStr := jsonStringify(j)
 			value := reflect.New(t).Interface()
 			if err := json.Unmarshal([]byte(jStr), value); err != nil {
-				// TODO: Fix this
-				print(err.Error())
+				i.onError(err)
 				cursor.Call("continue")
 				return
 			}
@@ -220,9 +232,9 @@ func (i *IDB) sync(m Model) {
 			cursor.Call("continue")
 			return
 		})
-		req.Set("onerror", onError)
+		req.Set("onerror", i.idxOnError)
 	})
-	req.Set("onerror", onError)
+	req.Set("onerror", i.idxOnError)
 }
 
 func (i *IDB) sync2(
@@ -234,37 +246,31 @@ func (i *IDB) sync2(
 	req.Set("onload", func(e js.Object) {
 		xhr := e.Get("target")
 		if xhr.Get("status").Int() != 200 {
-			// TODO: Fix this
-			print(xhr.Get("responseText").Str())
 			return
 		}
 		text := xhr.Get("responseText").Str()
 		res := models.SyncResponse{}
 		if err := json.Unmarshal([]byte(text), &res); err != nil {
-			// TODO: Fix this
-			print(err.Error())
+			i.onError(err)
 			return
 		}
 		vals := []interface{}{}
 		for _, v := range res.Values {
 			v, ok := v.(*models.ItemData)
 			if !ok {
-				// TODO: Fix this
-				print("invalid response")
+				err := errors.New("idb: invalid response")
+				i.onError(err)
 				return
 			}
 			if err := i.put(v); err != nil {
-				// TODO: Fix this
-				print(err.Error())
+				i.onError(err)
 				return
 			}
 			vals = append(vals, v)
 		}
 		m.OnLoaded(vals)
 	})
-	req.Set("onerror", func(e js.Object) {
-		// FIXME: implement this
-	})
+	req.Set("onerror", i.jsOnError)
 	request := models.SyncRequest{
 		Type:        m.Type().Name(),
 		LastUpdated: maxLastUpdated,

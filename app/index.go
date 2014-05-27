@@ -135,10 +135,11 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 			resItems[id] = d
 		}
 
-		keys := []*datastore.Key{}
+		keys := make([]*datastore.Key, 0, len(serverNewItems))
 		for _, d := range serverNewItems {
 			strID := d.Meta.ID.String()
-			keys = append(keys, datastore.NewKey(c, kindItems, strID, 0, rootKey))
+			key := datastore.NewKey(c, kindItems, strID, 0, rootKey)
+			keys = append(keys, key)
 		}
 		if _, err := datastore.PutMulti(c, keys, serverNewItems); err != nil {
 			return err
@@ -150,7 +151,7 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	values := []interface{}{}
+	values := make([]interface{}, 0, len(resItems))
 	for _, v := range resItems {
 		values = append(values, v)
 	}
