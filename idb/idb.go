@@ -29,15 +29,15 @@ type IDB struct {
 	db           js.Object
 	lastUpdated  models.UnixTime
 	queue        []func()
+	syncNeeded   bool
 }
 
 func New(name string, onErrorFunc func(error)) *IDB {
 	idb := &IDB{
 		name:        name,
 		onErrorFunc: onErrorFunc,
-		db:          nil,
-		lastUpdated: 0,
 		queue:       []func(){},
+		syncNeeded:  true,
 	}
 	return idb
 }
@@ -73,6 +73,7 @@ func (i *IDB) Save(value interface{}) error {
 		return nil
 	}
 
+	i.syncNeeded = true
 	return i.put(value)
 }
 
@@ -135,19 +136,23 @@ func (i *IDB) loadAll(m Model) error {
 	return nil
 }
 
-func (i *IDB) Sync(models []Model) {
+func (i *IDB) SyncIfNeeded(models []Model) {
 	if !i.isReady() {
 		i.initializing.Do(func() {
 			i.init(models)
 		})
 		i.queue = append(i.queue, func() {
-			i.Sync(models)
+			i.SyncIfNeeded(models)
 		})
+		return
+	}
+	if !i.syncNeeded {
 		return
 	}
 	for _, m := range models {
 		i.sync(m)
 	}
+	i.syncNeeded = false
 }
 
 func (i *IDB) init(models []Model) {

@@ -38,11 +38,11 @@ func ready() {
 
 	v := view.NewHTMLView()
 	items := items.New(v, db)
-	
+
 	var sync func()
 	sync = func() {
-		db.Sync([]idb.Model{items})
-		time.AfterFunc(60 * time.Second, sync)
+		db.SyncIfNeeded([]idb.Model{items})
+		time.AfterFunc(20 * time.Second, sync) 
 	}
 	sync()
 
