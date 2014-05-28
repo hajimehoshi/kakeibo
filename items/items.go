@@ -8,7 +8,6 @@ import (
 	"github.com/hajimehoshi/kakeibo/uuid"
 	"reflect"
 	"sort"
-	"sync"
 )
 
 type Storage interface {
@@ -19,10 +18,9 @@ type ItemsView interface {
 	SetEdittingItem(id uuid.UUID)
 	PrintTitle(title string)
 	PrintItems(ids []uuid.UUID)
-	PrintTotal(total models.MoneyAmount)
+	PrintItemsAndTotal(ids []uuid.UUID, total models.MoneyAmount)
 	PrintItem(data models.ItemData)
 	PrintYearMonths([]date.Date)
-	OnInit(items *Items)
 }
 
 type Mode int
@@ -34,21 +32,22 @@ const (
 
 // TODO: Should this have 'mode'?
 type Items struct {
-	items         map[uuid.UUID]*Item
-	view          ItemsView
-	storage       Storage
-	mode          Mode
-	yearMonth     date.Date
-	editingItem   *Item
-	initialLoaded sync.Once
+	items       map[uuid.UUID]*Item
+	view        ItemsView
+	storage     Storage
+	mode        Mode
+	yearMonth   date.Date
+	editingItem *Item
 }
 
 func New(view ItemsView, storage Storage) *Items {
-	return &Items{
+	items := &Items{
 		items:   map[uuid.UUID]*Item{},
 		view:    view,
 		storage: storage,
 	}
+	items.createEdittingItem()
+	return items
 }
 
 func (i *Items) Type() reflect.Type {
@@ -74,13 +73,9 @@ func (i *Items) OnLoaded(vals []interface{}) {
 			storage: i.storage,
 		}
 		i.items[id] = item
-		item.print()
 	}
 	i.printYearMonths()
-	i.initialLoaded.Do(func() {
-		i.view.OnInit(i)
-		i.createEdittingItem()
-	})
+	i.printItems()
 }
 
 func (i *Items) createEdittingItem() error {
@@ -253,11 +248,10 @@ func (i *Items) printYearMonthItems() {
 	}
 	s := sortItemsByDate{i, ids}
 	sort.Sort(s)
-	i.view.PrintItems(ids)
+	i.view.PrintItemsAndTotal(ids, total)
 	for _, id := range ids {
 		i.get(id).print()
 	}
-	i.view.PrintTotal(total)
 }
 
 func (i *Items) get(id uuid.UUID) *Item {

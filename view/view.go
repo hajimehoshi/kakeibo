@@ -166,7 +166,6 @@ func addEventListeners(items Items, form js.Object) {
 
 type HTMLView struct {
 	items Items
-	queue []func()
 }
 
 func empty(e js.Object) {
@@ -176,20 +175,22 @@ func empty(e js.Object) {
 }
 
 func NewHTMLView() *HTMLView {
-	v := &HTMLView{
-		queue: []func(){},
-	}
+	v := &HTMLView{}
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
 	form.Set("onsubmit", v.onSubmit)
 
-	js.Global.Get("window").Set("onhashchange", v.onHashChange)
-	js.Global.Get("window").Call("onhashchange")
-
 	return v
 }
 
-func (v *HTMLView) onHashChange(e js.Object) {
+func (v *HTMLView) SetItems(items *items.Items) {
+	v.items = items
+	document := js.Global.Get("document")
+	form := document.Call("getElementById", "form_item")
+	addEventListeners(items, form)
+}
+
+func (v *HTMLView) OnHashChange(e js.Object) {
 	hash := js.Global.Get("location").Get("hash").Str()
 	// Remove the initial '#'
 	if 1 <= len(hash) {
@@ -216,9 +217,6 @@ func (v *HTMLView) onHashChange(e js.Object) {
 
 func (v *HTMLView) onSubmit(e js.Object) {
 	e.Call("preventDefault")
-	if !v.isInited() {
-		return
-	}
 	form := e.Get("target")
 	id, err := getIDFromElement(form)
 	if err != nil {
@@ -237,17 +235,7 @@ func (v *HTMLView) SetEdittingItem(id uuid.UUID) {
 	form.Get("dataset").Set(datasetAttrID, id.String())
 }
 
-func (v *HTMLView) isInited() bool {
-	return v.items != nil
-}
-
 func (v *HTMLView) updateMode(mode items.Mode, ym date.Date) {
-	if !v.isInited() {
-		v.queue = append(v.queue, func() {
-			v.updateMode(mode, ym)
-		})
-		return
-	}
 	v.items.UpdateMode(mode, ym)
 }
 
@@ -267,7 +255,11 @@ func (v *HTMLView) PrintItems(ids []uuid.UUID) {
 	}
 }
 
-func (v *HTMLView) PrintTotal(total models.MoneyAmount) {
+func (v *HTMLView) PrintItemsAndTotal(
+	ids []uuid.UUID,
+	total models.MoneyAmount) {
+	v.PrintItems(ids)
+
 	document := js.Global.Get("document")
 	table := document.Call("getElementById", "table_items")
 	tbody := table.Call("getElementsByTagName", "tbody").Index(0)
@@ -292,18 +284,6 @@ func (v *HTMLView) PrintTotal(total models.MoneyAmount) {
 	tr.Call("appendChild", td)
 
 	tbody.Call("appendChild", tr)
-}
-
-func (v *HTMLView) OnInit(items *items.Items) {
-	v.items = items
-	for _, f := range v.queue {
-		f()
-	}
-	v.queue = []func(){}
-
-	document := js.Global.Get("document")
-	form := document.Call("getElementById", "form_item")
-	addEventListeners(items, form)
 }
 
 func (v *HTMLView) PrintYearMonths(yms []date.Date) {
@@ -379,7 +359,7 @@ func (v *HTMLView) onClickToDelete(e js.Object) {
 		printError(err.Error())
 		return
 	}
-	// TODO: Confirming if needed.
+	// TODO: Show confirming alert if needed.
 	if err := v.items.Destroy(id); err != nil {
 		printError(err.Error())
 		return

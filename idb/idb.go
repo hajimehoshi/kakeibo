@@ -9,7 +9,6 @@ import (
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/hajimehoshi/kakeibo/models"
 	"reflect"
-	"sync"
 )
 
 const (
@@ -24,7 +23,6 @@ type Model interface {
 type IDB struct {
 	name         string
 	onErrorFunc  func(error)
-	initializing sync.Once
 	db           js.Object
 	lastUpdated  models.UnixTime
 	queue        []func()
@@ -112,9 +110,7 @@ func (i *IDB) loadAll(m Model) error {
 	req.Set("onsuccess", func(e js.Object) {
 		cursor := e.Get("target").Get("result")
 		if cursor.IsNull() {
-			if 0 < len(values) {
-				m.OnLoaded(values)
-			}
+			m.OnLoaded(values)
 			return
 		}
 		value := cursor.Get("value")
@@ -138,10 +134,6 @@ func (i *IDB) loadAll(m Model) error {
 
 func (i *IDB) SyncIfNeeded(models []Model) {
 	if !i.isReady() {
-		// FIXME: Pass |models| anywhere but here
-		i.initializing.Do(func() {
-			i.init(models)
-		})
 		i.queue = append(i.queue, func() {
 			i.SyncIfNeeded(models)
 		})
@@ -156,7 +148,7 @@ func (i *IDB) SyncIfNeeded(models []Model) {
 	i.syncNeeded = false
 }
 
-func (i *IDB) init(models []Model) {
+func (i *IDB) Init(models []Model) {
 	const version = 1
 	req := js.Global.Get("indexedDB").Call("open", i.name, version)
 	req.Set("onupgradeneeded", func(e js.Object) {

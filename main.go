@@ -38,6 +38,9 @@ func ready() {
 
 	v := view.NewHTMLView()
 	items := items.New(v, db)
+	v.SetItems(items)
+
+	db.Init([]idb.Model{items})
 
 	var sync func()
 	sync = func() {
@@ -53,6 +56,9 @@ func ready() {
 
 	debugOverlay := document.Call("getElementById", "debug_overlay")
 	debugOverlay.Set("onclick", toggleDebugOverlay)
+
+	js.Global.Get("window").Set("onhashchange", v.OnHashChange)
+	js.Global.Get("window").Call("onhashchange")
 }
 
 func toggleDebugOverlay(e js.Object) {
