@@ -8,8 +8,10 @@ import (
 	"github.com/hajimehoshi/kakeibo/items"
 	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
+	"html"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 type Items interface {
@@ -28,10 +30,28 @@ func printError(val interface{}) {
 // TODO: I18N
 
 const (
-	// TODO: Rename data-id -> data-models-id?
-	datasetAttrID  = "id"
-	datasetAttrKey = "key"
+	datasetAttrID  = "model-id"
+	datasetAttrKey = "model-key"
 )
+
+func toDatasetPropName(attr string) string {
+	ts := strings.Split(attr, "-")
+	if len(ts) == 0 {
+		return ""
+	}
+	tokens := make([]string, len(ts))
+	for i, t := range ts {
+		if len(t) == 0 {
+			continue
+		}
+		if i == 0 {
+			tokens[i] = t
+			continue
+		}
+		tokens[i] = strings.Title(t)
+	}
+	return strings.Join(tokens, "")
+}
 
 var (
 	numberTypes = []reflect.Type{
@@ -61,7 +81,7 @@ func isNumberType(t reflect.Type) bool {
 
 func getIDElement(e js.Object) js.Object {
 	for {
-		attr := e.Get("dataset").Get(datasetAttrID)
+		attr := e.Get("dataset").Get(toDatasetPropName(datasetAttrID))
 		if !attr.IsUndefined() {
 			return e
 		}
@@ -78,7 +98,7 @@ func getIDFromElement(e js.Object) (uuid.UUID, error) {
 	if e2 == nil {
 		return uuid.Zero, errors.New("view: element not found")
 	}
-	str := e2.Get("dataset").Get(datasetAttrID).Str()
+	str := e2.Get("dataset").Get(toDatasetPropName(datasetAttrID)).Str()
 	id, err := uuid.ParseString(str)
 	if err != nil {
 		return uuid.Zero, err
@@ -91,18 +111,20 @@ func printValueAt(e js.Object, name string, value string) {
 	if e.Get("name").Str() == name {
 		targets = append(targets, e)
 	}
-	// TODO: Escape
-	query := fmt.Sprintf("*[name=\"%s\"]", name)
+	query := fmt.Sprintf("*[name=\"%s\"]", html.EscapeString(name))
 	es := e.Call("querySelectorAll", query)
 	for i := 0; i < es.Length(); i++ {
 		targets = append(targets, es.Index(i))
 	}
 
-	if e.Get("dataset").Get(datasetAttrKey).Str() == name {
+	key := e.Get("dataset").Get(toDatasetPropName(datasetAttrKey)).Str()
+	if key == name {
 		targets = append(targets, e)
 	}
-	// TODO: Escape
-	query = fmt.Sprintf("*[data-%s=\"%s\"]", datasetAttrKey, name)
+	query = fmt.Sprintf(
+		"*[data-%s=\"%s\"]",
+		html.EscapeString(datasetAttrKey),
+		html.EscapeString(name))
 	es = e.Call("querySelectorAll", query)
 	for i := 0; i < es.Length(); i++ {
 		targets = append(targets, es.Index(i))
@@ -232,7 +254,7 @@ func (v *HTMLView) onSubmit(e js.Object) {
 func (v *HTMLView) SetEdittingItem(id uuid.UUID) {
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
-	form.Get("dataset").Set(datasetAttrID, id.String())
+	form.Get("dataset").Set(toDatasetPropName(datasetAttrID), id.String())
 }
 
 func (v *HTMLView) updateMode(mode items.Mode, ym date.Date) {
@@ -304,8 +326,10 @@ func (v *HTMLView) PrintYearMonths(yms []date.Date) {
 func (v *HTMLView) PrintItem(data models.ItemData) {
 	document := js.Global.Get("document")
 	id := data.Meta.ID
-	// TODO: Escape
-	query := fmt.Sprintf("*[data-%s=\"%s\"]", datasetAttrID, id.String())
+	query := fmt.Sprintf(
+		"*[data-%s=\"%s\"]",
+		html.EscapeString(datasetAttrID),
+		html.EscapeString(id.String()))
 	elements := document.Call("querySelectorAll", query)
 	for i := 0; i < elements.Length(); i++ {
 		e := elements.Index(i)
@@ -325,7 +349,7 @@ func (v *HTMLView) addIDToItemTable(id uuid.UUID) {
 		return
 	}
 	tr := document.Call("createElement", "tr")
-	tr.Get("dataset").Set(datasetAttrID, id.String())
+	tr.Get("dataset").Set(toDatasetPropName(datasetAttrID), id.String())
 
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
@@ -333,7 +357,7 @@ func (v *HTMLView) addIDToItemTable(id uuid.UUID) {
 			continue
 		}
 		td := document.Call("createElement", "td")
-		td.Get("dataset").Set(datasetAttrKey, f.Name)
+		td.Get("dataset").Set(toDatasetPropName(datasetAttrKey), f.Name)
 		if isNumberType(f.Type) {
 			td.Get("classList").Call("add", "number")
 		}

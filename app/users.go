@@ -63,15 +63,3 @@ func filterUsers(f http.HandlerFunc) http.HandlerFunc {
 		f(w, r)
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
