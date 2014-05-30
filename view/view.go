@@ -34,7 +34,7 @@ const (
 	datasetAttrKey = "model-key"
 )
 
-func toDatasetPropName(attr string) string {
+func toDatasetProp(attr string) string {
 	ts := strings.Split(attr, "-")
 	if len(ts) == 0 {
 		return ""
@@ -81,7 +81,7 @@ func isNumberType(t reflect.Type) bool {
 
 func getIDElement(e js.Object) js.Object {
 	for {
-		attr := e.Get("dataset").Get(toDatasetPropName(datasetAttrID))
+		attr := e.Get("dataset").Get(toDatasetProp(datasetAttrID))
 		if !attr.IsUndefined() {
 			return e
 		}
@@ -98,7 +98,7 @@ func getIDFromElement(e js.Object) (uuid.UUID, error) {
 	if e2 == nil {
 		return uuid.Zero, errors.New("view: element not found")
 	}
-	str := e2.Get("dataset").Get(toDatasetPropName(datasetAttrID)).Str()
+	str := e2.Get("dataset").Get(toDatasetProp(datasetAttrID)).Str()
 	id, err := uuid.ParseString(str)
 	if err != nil {
 		return uuid.Zero, err
@@ -117,8 +117,7 @@ func printValueAt(e js.Object, name string, value string) {
 		targets = append(targets, es.Index(i))
 	}
 
-	key := e.Get("dataset").Get(toDatasetPropName(datasetAttrKey)).Str()
-	if key == name {
+	if e.Get("dataset").Get(toDatasetProp(datasetAttrKey)).Str() == name {
 		targets = append(targets, e)
 	}
 	query = fmt.Sprintf(
@@ -254,7 +253,7 @@ func (v *HTMLView) onSubmit(e js.Object) {
 func (v *HTMLView) SetEdittingItem(id uuid.UUID) {
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
-	form.Get("dataset").Set(toDatasetPropName(datasetAttrID), id.String())
+	form.Get("dataset").Set(toDatasetProp(datasetAttrID), id.String())
 }
 
 func (v *HTMLView) updateMode(mode items.Mode, ym date.Date) {
@@ -349,7 +348,7 @@ func (v *HTMLView) addIDToItemTable(id uuid.UUID) {
 		return
 	}
 	tr := document.Call("createElement", "tr")
-	tr.Get("dataset").Set(toDatasetPropName(datasetAttrID), id.String())
+	tr.Get("dataset").Set(toDatasetProp(datasetAttrID), id.String())
 
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
@@ -357,7 +356,7 @@ func (v *HTMLView) addIDToItemTable(id uuid.UUID) {
 			continue
 		}
 		td := document.Call("createElement", "td")
-		td.Get("dataset").Set(toDatasetPropName(datasetAttrKey), f.Name)
+		td.Get("dataset").Set(toDatasetProp(datasetAttrKey), f.Name)
 		if isNumberType(f.Type) {
 			td.Get("classList").Call("add", "number")
 		}

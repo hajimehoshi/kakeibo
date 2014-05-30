@@ -2,27 +2,16 @@ package index
 
 import (
 	"appengine"
-	"appengine/datastore"
 	"appengine/user"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/hajimehoshi/kakeibo/models"
-	"github.com/hajimehoshi/kakeibo/uuid"
 	"html/template"
 	"io/ioutil"
 	"net/http"
-	"reflect"
-	"time"
 )
 
-const (
-	kindItems = "Items"
-)
-
-var (
-	rootKeyStringID = reflect.TypeOf((*models.ItemData)(nil)).Elem().Name()
-)
+// TODO: Use memcache?
 
 var tmpl *template.Template
 
@@ -53,108 +42,58 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// TODO: Split this into two works (PUT and GET)
-// TODO: Use memcache?
-func handleSync(w http.ResponseWriter, r *http.Request) {
-	c := appengine.NewContext(r)
-	u := user.Current(c)
-
+func parseRequest(r *http.Request) (
+	req *models.SyncRequest,
+	reqItems []*models.ItemData,
+	err error) {
 	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return
+	}
+
+	req = &models.SyncRequest{}
+	if err = json.Unmarshal(body, &req); err != nil {
+		return
+	}
+	reqItems = []*models.ItemData{}
+	for _, v := range req.Values {
+		v, ok := v.(*models.ItemData)
+		if !ok {
+			err = errors.New("invalid data")
+			return
+		}
+		reqItems = append(reqItems, v)
+	}
+	return
+}
+
+func handleSync(w http.ResponseWriter, r *http.Request) {
+	req, reqItems, err := parseRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	req := models.SyncRequest{}
-	if err := json.Unmarshal(body, &req); err != nil {
+
+	c := appengine.NewContext(r)
+	u := user.Current(c)
+
+	d := NewItemDatastore(c, u.ID)
+	now, err := d.Put(req.LastUpdated, reqItems)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	lastUpdated := req.LastUpdated
-	reqItems := map[uuid.UUID]*models.ItemData{}
-	for _, v := range req.Values {
-		v, ok := v.(*models.ItemData)
-		if !ok {
-			http.Error(w, "invalid data", http.StatusBadRequest)
-			return
-		}
-		reqItems[v.Meta.ID] = v
-	}
-
-	now := models.UnixTime(time.Now().Unix())
-	if now < lastUpdated {
-		http.Error(w, "last_updated is too new", http.StatusBadRequest)
+	resItems, err := d.Get(req.LastUpdated)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	resItems := map[uuid.UUID]*models.ItemData{}
-
-	if err := datastore.RunInTransaction(c, func(c appengine.Context) error {
-		serverItems := map[uuid.UUID]*models.ItemData{}
-		rootKey := datastore.NewKey(c, kindItems, rootKeyStringID, 0, nil)
-		q := datastore.NewQuery(kindItems)
-		q = q.Ancestor(rootKey)
-		q = q.Filter("Meta.LastUpdated >=", lastUpdated)
-		q = q.Filter("Meta.UserID =", u.ID)
-		t := q.Run(c)
-		for {
-			var d models.ItemData
-			_, err := t.Next(&d)
-			if err == datastore.Done {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			serverItems[d.Meta.ID] = &d
-		}
-
-		serverNewItems := []*models.ItemData{}
-		for id, d := range serverItems {
-			resItems[id] = d
-		}
-		for id, d := range reqItems {
-			if _, ok := serverItems[id]; ok {
-				continue
-			}
-			// The requested data is new.
-			strID := id.String()
-			key := datastore.NewKey(c, kindItems, strID, 0, rootKey)
-			var d2 models.ItemData
-			err := datastore.Get(c, key, &d2)
-			if err == nil {
-				if d2.Meta.UserID != u.ID {
-					return errors.New(
-						fmt.Sprintf("invalid UUID: %s", strID))
-				}
-			} else if err != datastore.ErrNoSuchEntity {
-				return err
-			}
-			d.Meta.LastUpdated = now
-			d.Meta.UserID = u.ID
-			serverNewItems = append(serverNewItems, d)
-			resItems[id] = d
-		}
-
-		keys := make([]*datastore.Key, 0, len(serverNewItems))
-		for _, d := range serverNewItems {
-			strID := d.Meta.ID.String()
-			key := datastore.NewKey(c, kindItems, strID, 0, rootKey)
-			keys = append(keys, key)
-		}
-		if _, err := datastore.PutMulti(c, keys, serverNewItems); err != nil {
-			return err
-		}
-
-		return nil
-	}, nil); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	values := make([]interface{}, len(resItems))
+	for i, v := range resItems {
+		values[i] = v
 	}
 
-	values := make([]interface{}, 0, len(resItems))
-	for _, v := range resItems {
-		values = append(values, v)
-	}
 	res := &models.SyncResponse{
 		Type: req.Type,
 		LastUpdated: now,
@@ -171,4 +110,3 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
-
