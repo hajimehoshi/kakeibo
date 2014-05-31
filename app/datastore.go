@@ -71,7 +71,7 @@ func (d *ItemDatastore) Put(
 						id.String())
 					return errors.New(e)
 				}
-				if existingData.Meta.LastUpdated >= lastUpdated {
+				if existingData.Meta.LastUpdated > lastUpdated {
 					continue
 				}
 			case datastore.ErrNoSuchEntity:
@@ -98,12 +98,9 @@ func (d *ItemDatastore) Get(
 	lastUpdated models.UnixTime) (items []*models.ItemData, err error) {
 	q := datastore.NewQuery(kindItems).
 		Ancestor(d.rootKey).
-		Filter("Meta.LastUpdated >=", lastUpdated).
+		Filter("Meta.LastUpdated >", lastUpdated).
 		Filter("Meta.UserID =", d.userID)
 	items = []*models.ItemData{}
 	_, err = q.GetAll(d.context, &items)
 	return
 }
-
-
-

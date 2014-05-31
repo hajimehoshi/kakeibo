@@ -131,7 +131,9 @@ func (i *Items) Save(id uuid.UUID) error {
 	if item == nil {
 		return errors.New("Items.Save: item not found")
 	}
-	// TODO: Validation here
+	if !item.data.IsValid() {
+		return errors.New("Items.Save: invalid item")
+	}
 	if err := item.save(); err != nil {
 		return err
 	}

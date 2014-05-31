@@ -11,6 +11,9 @@ import (
 	"reflect"
 )
 
+// FIXME: When multiple tabs are opened, the IndexedDB can be changed without
+// syncing with server. How can we observe this?
+
 const (
 	lastUpdatedIndex = "LastUpdated"
 )
@@ -30,13 +33,12 @@ type IDB struct {
 }
 
 func New(name string, onErrorFunc func(error)) *IDB {
-	idb := &IDB{
+	return &IDB{
 		name:        name,
 		onErrorFunc: onErrorFunc,
 		queue:       []func(){},
 		syncNeeded:  true,
 	}
-	return idb
 }
 
 func (i *IDB) onError(err error) {

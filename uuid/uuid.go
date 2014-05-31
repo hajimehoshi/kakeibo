@@ -1,7 +1,6 @@
 package uuid
 
 import (
-	//"encoding/hex"
 	"errors"
 	"fmt"
 	"regexp"
