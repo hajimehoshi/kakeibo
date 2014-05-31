@@ -19,6 +19,10 @@ func TestString(t *testing.T) {
 		Expected string
 	}{
 		{
+			New(9999, 12, 31),
+			"9999-12-31",
+		},
+		{
 			New(2006, 1, 5),
 			"2006-01-05",
 		},
