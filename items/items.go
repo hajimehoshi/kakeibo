@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/kakeibo/uuid"
 	"reflect"
 	"sort"
+	"time"
 )
 
 type Storage interface {
@@ -151,7 +152,7 @@ func (i *Items) Destroy(id uuid.UUID) error {
 		return errors.New("Items.Save: item not found")
 	}
 	meta := item.data.Meta
-	meta.LastUpdated = models.UnixTime(0)
+	meta.LastUpdated = time.Time{}
 	meta.IsDeleted = true
 	item.data = &models.ItemData{Meta: meta}
 	if err := item.save(); err != nil {

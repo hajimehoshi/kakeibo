@@ -5,31 +5,35 @@ import (
 	"time"
 )
 
-const format = "2006-01-02T15:04:05Z"
+/*const format = "2006-01-02T15:04:05.000Z"
 
-type UnixTime int64
+type Time time.Time
 
-func (u UnixTime) MarshalText() ([]byte, error) {
-	return []byte(time.Unix(int64(u), 0).UTC().Format(format)), nil
+func (u Time) MarshalText() ([]byte, error) {
+	return []byte(time.Time(u).UTC().Format(format)), nil
 }
 
-func (u *UnixTime) UnmarshalText(s []byte) error {
+func (u *Time) UnmarshalText(s []byte) error {
 	t, err := time.Parse(format, string(s))
 	if err != nil {
 		return err
 	}
-	*u = UnixTime(t.Unix())
+	*u = Time(t.UTC())
 	return nil
 }
 
-func (u UnixTime) String() string {
+func (u Time) String() string {
 	b, _ := u.MarshalText()
 	return string(b)
 }
 
+func (u Time) LessThan(v Time) bool {
+	return time.Time(u).UnixNano() < time.Time(v).UnixNano()
+}*/
+
 type Meta struct {
 	ID          uuid.UUID
-	LastUpdated UnixTime
+	LastUpdated time.Time
 	IsDeleted   bool
 	UserID      string `json:"-"`
 }
@@ -38,8 +42,4 @@ func NewMeta() Meta {
 	return Meta{
 		ID: uuid.Generate(),
 	}
-}
-
-func (m *Meta) Reset() {
-	m.LastUpdated = 0
 }
