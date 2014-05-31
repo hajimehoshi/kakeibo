@@ -19,7 +19,6 @@ var forbiddenTmplStr = `
 <p>Forbidden (<a href="{{.LogoutURL}}">Logout</a>)</p>
 `[1:]
 
-
 func init() {
 	f, err := os.Open("users.txt")
 	if err != nil {
@@ -43,7 +42,6 @@ func init() {
 		panic(err)
 	}
 }
-
 
 func filterUsers(f http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

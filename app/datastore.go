@@ -3,10 +3,10 @@ package index
 import (
 	"appengine"
 	"appengine/datastore"
+	"errors"
 	"fmt"
 	"github.com/hajimehoshi/kakeibo/models"
 	"github.com/hajimehoshi/kakeibo/uuid"
-	"errors"
 	"reflect"
 	"time"
 )
@@ -58,7 +58,7 @@ func (d *ItemDatastore) Put(
 	now = time.Now().UTC()
 	if less(now, lastUpdated) {
 		err = errors.New("last-updated is too new")
-		return 
+		return
 	}
 	f := func(c appengine.Context) error {
 		itemsToPut := []*models.ItemData{}
@@ -96,7 +96,7 @@ func (d *ItemDatastore) Put(
 		return err
 	}
 	err = datastore.RunInTransaction(d.context, f, nil)
-	return 
+	return
 }
 
 func (d *ItemDatastore) Get(

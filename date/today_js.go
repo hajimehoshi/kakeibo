@@ -3,8 +3,8 @@
 package date
 
 import (
-	"time"
 	"github.com/gopherjs/gopherjs/js"
+	"time"
 )
 
 func today() Date {

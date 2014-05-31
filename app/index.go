@@ -95,9 +95,9 @@ func handleSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res := &models.SyncResponse{
-		Type: req.Type,
+		Type:        req.Type,
 		LastUpdated: now,
-		Values: values,
+		Values:      values,
 	}
 	resBytes, err := json.Marshal(res)
 	if err != nil {
