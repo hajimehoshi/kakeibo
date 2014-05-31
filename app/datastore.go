@@ -12,7 +12,8 @@ import (
 )
 
 func less(t1, t2 time.Time) bool {
-	return t1.UnixNano() < t2.UnixNano()
+	// t1 < t2
+	return 0 < t2.Sub(t1)
 }
 
 const (
