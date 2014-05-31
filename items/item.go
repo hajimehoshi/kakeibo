@@ -3,6 +3,7 @@ package items
 import (
 	"github.com/hajimehoshi/kakeibo/date"
 	"github.com/hajimehoshi/kakeibo/models"
+	"time"
 )
 
 type Item struct {
@@ -45,7 +46,7 @@ func (i *Item) print() {
 }
 
 func (i *Item) save() error {
-	i.data.Meta.LastUpdated = models.UnixTime(0)
+	i.data.Meta.LastUpdated = time.Time{}
 	i.print()
 	if i.storage == nil {
 		return nil

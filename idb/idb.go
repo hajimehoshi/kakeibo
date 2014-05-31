@@ -9,6 +9,7 @@ import (
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/hajimehoshi/kakeibo/models"
 	"reflect"
+	"time"
 )
 
 // FIXME: When multiple tabs are opened, the IndexedDB can be changed without
@@ -27,7 +28,7 @@ type IDB struct {
 	name         string
 	onErrorFunc  func(error)
 	db           js.Object
-	lastUpdated  models.UnixTime
+	lastUpdated  time.Time
 	queue        []func()
 	syncNeeded   bool
 }
@@ -190,7 +191,7 @@ func (i *IDB) Init(models []Model) {
 }
 
 func (i *IDB) sync(m Model) {
-	maxLastUpdated := models.UnixTime(0)
+	maxLastUpdated := time.Time{}
 
 	db := i.db
 	t := m.Type()
@@ -209,7 +210,10 @@ func (i *IDB) sync(m Model) {
 				return
 			}
 		}
-		req := idx.Call("openCursor", models.UnixTime(0).String())
+		// A record whose LastUpdated is zero time means a record which
+		// is not synced.
+		zerot, _ := time.Time{}.MarshalText()
+		req := idx.Call("openCursor", string(zerot))
 		values := []interface{}{}
 		req.Set("onsuccess", func(e js.Object) {
 			cursor := e.Get("target").Get("result")
@@ -235,10 +239,7 @@ func (i *IDB) sync(m Model) {
 	req.Set("onerror", i.idxOnError)
 }
 
-func (i *IDB) sync2(
-	m Model,
-	maxLastUpdated models.UnixTime,
-	values []interface{}) {
+func (i *IDB) sync2(m Model, maxLastUpdated time.Time, values []interface{}) {
 	req := js.Global.Get("XMLHttpRequest").New()
 	req.Call("open", "POST", "/sync", true)
 	req.Set("onload", func(e js.Object) {

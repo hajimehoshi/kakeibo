@@ -11,6 +11,10 @@ import (
 	"time"
 )
 
+func less(t1, t2 time.Time) bool {
+	return t1.UnixNano() < t2.UnixNano()
+}
+
 const (
 	kindItems = "Items"
 )
@@ -49,10 +53,10 @@ func (d *ItemDatastore) datastoreKey(id uuid.UUID) *datastore.Key {
 }
 
 func (d *ItemDatastore) Put(
-	lastUpdated models.UnixTime,
-	reqItems []*models.ItemData) (now models.UnixTime, err error) {
-	now = models.UnixTime(time.Now().Unix())
-	if now < lastUpdated {
+	lastUpdated time.Time,
+	reqItems []*models.ItemData) (now time.Time, err error) {
+	now = time.Now().UTC()
+	if less(now, lastUpdated) {
 		err = errors.New("last-updated is too new")
 		return 
 	}
@@ -71,7 +75,8 @@ func (d *ItemDatastore) Put(
 						id.String())
 					return errors.New(e)
 				}
-				if existingData.Meta.LastUpdated > lastUpdated {
+				if less(lastUpdated,
+					existingData.Meta.LastUpdated) {
 					continue
 				}
 			case datastore.ErrNoSuchEntity:
@@ -95,7 +100,7 @@ func (d *ItemDatastore) Put(
 }
 
 func (d *ItemDatastore) Get(
-	lastUpdated models.UnixTime) (items []*models.ItemData, err error) {
+	lastUpdated time.Time) (items []*models.ItemData, err error) {
 	q := datastore.NewQuery(kindItems).
 		Ancestor(d.rootKey).
 		Filter("Meta.LastUpdated >", lastUpdated).
