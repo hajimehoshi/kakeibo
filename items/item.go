@@ -32,7 +32,7 @@ func (i *Item) updateSubject(subject string) {
 	i.print()
 }
 
-func (i *Item) updateAmount(amount models.MoneyAmount) {
+func (i *Item) updateAmount(amount int32) {
 	i.data.Amount = amount
 	i.print()
 }

@@ -17,7 +17,7 @@ import (
 type Items interface {
 	UpdateDate(id uuid.UUID, date date.Date) error
 	UpdateSubject(id uuid.UUID, subject string) error
-	UpdateAmount(id uuid.UUID, amount models.MoneyAmount) error
+	UpdateAmount(id uuid.UUID, amount int32) error
 	Save(id uuid.UUID) error
 	Destroy(id uuid.UUID) error
 	UpdateMode(mode items.Mode, ym date.Date)
@@ -177,7 +177,7 @@ func addEventListeners(items Items, form js.Object) {
 			printError(err.Error())
 			return
 		}
-		amount := models.MoneyAmount(e.Get("target").Get("value").Int())
+		amount := int32(e.Get("target").Get("value").Int())
 		if err := items.UpdateAmount(id, amount); err != nil {
 			printError(err.Error())
 			return
@@ -276,9 +276,7 @@ func (v *HTMLView) PrintItems(ids []uuid.UUID) {
 	}
 }
 
-func (v *HTMLView) PrintItemsAndTotal(
-	ids []uuid.UUID,
-	total models.MoneyAmount) {
+func (v *HTMLView) PrintItemsAndTotal(ids []uuid.UUID, total int) {
 	v.PrintItems(ids)
 
 	document := js.Global.Get("document")

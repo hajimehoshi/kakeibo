@@ -4,13 +4,11 @@ import (
 	"github.com/hajimehoshi/kakeibo/date"
 )
 
-type MoneyAmount int
-
 type ItemData struct {
 	Meta    Meta
 	Date    date.Date
 	Subject string
-	Amount  MoneyAmount
+	Amount  int32
 }
 
 func (i *ItemData) IsValid() bool {

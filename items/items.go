@@ -18,7 +18,7 @@ type ItemsView interface {
 	SetEdittingItem(id uuid.UUID)
 	PrintTitle(title string)
 	PrintItems(ids []uuid.UUID)
-	PrintItemsAndTotal(ids []uuid.UUID, total models.MoneyAmount)
+	PrintItemsAndTotal(ids []uuid.UUID, total int)
 	PrintItem(data models.ItemData)
 	PrintYearMonths([]date.Date)
 }
@@ -117,7 +117,7 @@ func (i *Items) UpdateSubject(id uuid.UUID, subject string) error {
 	return nil
 }
 
-func (i *Items) UpdateAmount(id uuid.UUID, amount models.MoneyAmount) error {
+func (i *Items) UpdateAmount(id uuid.UUID, amount int32) error {
 	item := i.get(id)
 	if item == nil {
 		return errors.New("Items.UpdateAmount: item not found")
@@ -233,7 +233,7 @@ func (i *Items) printAllItems() {
 func (i *Items) printYearMonthItems() {
 	ym := i.yearMonth
 	ids := []uuid.UUID{}
-	total := models.MoneyAmount(0)
+	total := 0
 	for _, item := range i.items {
 		if item.data.Meta.IsDeleted {
 			continue
@@ -246,7 +246,7 @@ func (i *Items) printYearMonthItems() {
 			continue
 		}
 		ids = append(ids, item.data.Meta.ID)
-		total += item.data.Amount
+		total += int(item.data.Amount)
 	}
 	s := sortItemsByDate{i, ids}
 	sort.Sort(s)
