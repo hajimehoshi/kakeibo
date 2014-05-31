@@ -49,11 +49,15 @@ func ready() {
 	}
 	sync()
 
-	document := js.Global.Get("document")
+	/*worker := js.Global.Get("SharedWorker").New("/static/scripts/shared.js")
+	worker.Get("port").Set("onmessage", func(e js.Object) {
+		print(e.Get("data").Str())
+	})
+	worker.Get("port").Call("postMessage", "foooo")*/
 
+	document := js.Global.Get("document")
 	debugLink := document.Call("getElementById", "debug_link")
 	debugLink.Set("onclick", toggleDebugOverlay)
-
 	debugOverlay := document.Call("getElementById", "debug_overlay")
 	debugOverlay.Set("onclick", toggleDebugOverlay)
 

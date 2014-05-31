@@ -12,8 +12,7 @@ import (
 	"time"
 )
 
-// FIXME: When multiple tabs are opened, the IndexedDB can be changed without
-// syncing with server. How can we observe this?
+// FIXME: Use SharedWorker.
 
 const (
 	lastUpdatedIndex = "LastUpdated"

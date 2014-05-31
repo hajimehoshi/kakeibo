@@ -3,4 +3,5 @@
 app.yaml
 index.yaml
 app/static/scripts/main.js
+app/static/scripts/shared.js
 users.txt
