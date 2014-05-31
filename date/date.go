@@ -5,10 +5,17 @@ import (
 	"time"
 )
 
-type Date int64
+const durationDay = 24 * time.Hour
+var (
+	unixEpoch = time.Unix(0, 0)
+)
+
+type Date int32
 
 func New(year int, month time.Month, day int) Date {
-	return Date(time.Date(year, month, day, 0, 0, 0, 0, time.UTC).Unix())
+	t := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+	v := int64(t.Sub(time.Time{})) / int64(durationDay)
+	return Date(v)
 }
 
 func Today() Date {
@@ -21,11 +28,13 @@ func ParseISO8601(value string) (Date, error) {
 	if err != nil {
 		return Date(0), err
 	}
-	return Date(t.Unix()), err
+	return New(t.Year(), t.Month(), t.Day()), nil
 }
 
 func (d Date) time() time.Time {
-	return time.Unix(int64(d), 0)
+	dur := time.Duration(int64(d) * int64(durationDay))
+	fmt.Printf("%v, %v, %v\n", int32(d), int64(dur), time.Time{}.Add(dur).UTC())
+	return time.Time{}.Add(dur).UTC()
 }
 
 func (d Date) AddDate(years, months, days int) Date {
