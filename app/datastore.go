@@ -11,11 +11,6 @@ import (
 	"time"
 )
 
-func less(t1, t2 time.Time) bool {
-	// t1 < t2
-	return 0 < t2.Sub(t1)
-}
-
 const (
 	kindItems = "Items"
 )
@@ -57,7 +52,7 @@ func (d *ItemDatastore) Put(
 	lastUpdated time.Time,
 	reqItems []*models.ItemData) (now time.Time, err error) {
 	now = time.Now().UTC()
-	if less(now, lastUpdated) {
+	if now.Before(lastUpdated) {
 		err = errors.New("last-updated is too new")
 		return
 	}
@@ -76,7 +71,7 @@ func (d *ItemDatastore) Put(
 						id.String())
 					return errors.New(e)
 				}
-				if less(lastUpdated,
+				if lastUpdated.Before(
 					existingData.Meta.LastUpdated) {
 					continue
 				}
