@@ -50,6 +50,9 @@ func ready() {
 	}
 	sync()
 
+	// TODO: Change title if the server is not the production server.
+
+	// TODO: Move 'debug' link somewhere else.
 	document := js.Global.Get("document")
 	debugLink := document.Call("getElementById", "debug_link")
 	debugLink.Set("onclick", toggleDebugOverlay)

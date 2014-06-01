@@ -16,7 +16,6 @@ func newItem(view ItemsView, storage Storage) *Item {
 	return &Item{
 		data: &models.ItemData{
 			Meta: models.NewMeta(),
-			Date: date.Today(),
 		},
 		view:    view,
 		storage: storage,

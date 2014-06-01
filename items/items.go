@@ -47,7 +47,7 @@ func New(view ItemsView, storage Storage) *Items {
 		view:    view,
 		storage: storage,
 	}
-	items.createEdittingItem()
+	items.createEdittingItem(date.Today())
 	return items
 }
 
@@ -79,8 +79,9 @@ func (i *Items) OnLoaded(vals []interface{}) {
 	i.printItems()
 }
 
-func (i *Items) createEdittingItem() error {
+func (i *Items) createEdittingItem(date date.Date) error {
 	item := newItem(i.view, i.storage)
+	item.data.Date = date
 	i.editingItem = item
 	id := item.data.Meta.ID
 	i.items[id] = item
@@ -139,7 +140,7 @@ func (i *Items) Save(id uuid.UUID) error {
 		return err
 	}
 	if i.editingItem == item {
-		i.createEdittingItem()
+		i.createEdittingItem(item.data.Date)
 	}
 	i.printItems()
 	i.printYearMonths()

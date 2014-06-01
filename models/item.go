@@ -4,6 +4,8 @@ import (
 	"github.com/hajimehoshi/kakeibo/date"
 )
 
+// FIXME: Implement 'income' and 'outgo'
+
 type ItemData struct {
 	Meta    Meta
 	Date    date.Date
