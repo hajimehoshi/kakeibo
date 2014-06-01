@@ -284,6 +284,9 @@ func (i *Items) printYearMonths() {
 		if item.data.Meta.IsDeleted {
 			continue
 		}
+		if item == i.editingItem {
+			continue
+		}
 		d := item.data.Date
 		y := d.Year()
 		m := d.Month()
