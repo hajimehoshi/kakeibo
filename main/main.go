@@ -39,7 +39,7 @@ func isDevelopment() bool {
 }
 
 func ready() {
-	// TODO: Create 'export' link
+	// FIXME: Create 'export' link
 
 	// TODO: Don't use IndexedDB (if needed).
 	// Or, create shared worker.
@@ -70,6 +70,8 @@ func ready() {
 		m := document.Call("getElementById", "mode")
 		m.Set("textContent", "(Development Mode)")
 
+		// TODO: This grid mode can be public even on the production
+		// mode.
 		debugLink := document.Call("getElementById", "debug_link")
 		debugLink.Set("onclick", toggleDebugOverlay)
 		debugOverlay := document.Call("getElementById", "debug_overlay")
