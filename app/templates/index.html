@@ -8,8 +8,8 @@
   </head>
   <body>
     <header>
-      <h1>Kakeibo</h1>
-      <p>Hello, {{.UserEmail}}! (<a href="{{.LogoutURL}}">Logout</a>) (<a id="debug_link" href="#">Debug</a>)</p>
+      <h1>Kakeibo<span class="development"><span id="mode"></span></span></h1>
+      <p>Hello, {{.UserEmail}}! (<a href="{{.LogoutURL}}">Logout</a>)<span class="development"> (<a id="debug_link" href="#">Debug</a>)</span></p>
     </header>
     <nav>
       <ul>

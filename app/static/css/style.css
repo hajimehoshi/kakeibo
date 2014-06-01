@@ -291,6 +291,13 @@ input[type=submit] {
 /*
  * Debug
  */
+.development {
+    display: none;
+}
+#mode {
+    color: #ecc;
+    margin-left: 8px;
+}
 #debug_overlay {
     background-image: url('/static/images/debug_grid.png');
     display: none;
