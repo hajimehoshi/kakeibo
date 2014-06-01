@@ -34,6 +34,7 @@ func main() {
 }
 
 func ready() {
+	// FIXME: Don't use IndexedDB.
 	db := idb.New(dbName, printError)
 
 	v := view.NewHTMLView()
@@ -48,12 +49,6 @@ func ready() {
 		time.AfterFunc(10 * time.Second, sync) 
 	}
 	sync()
-
-	/*worker := js.Global.Get("SharedWorker").New("/static/scripts/shared.js")
-	worker.Get("port").Set("onmessage", func(e js.Object) {
-		print(e.Get("data").Str())
-	})
-	worker.Get("port").Call("postMessage", "foooo")*/
 
 	document := js.Global.Get("document")
 	debugLink := document.Call("getElementById", "debug_link")
