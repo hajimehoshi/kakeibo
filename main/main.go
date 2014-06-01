@@ -39,7 +39,10 @@ func isDevelopment() bool {
 }
 
 func ready() {
-	// FIXME: Don't use IndexedDB.
+	// TODO: Create 'export' link
+
+	// TODO: Don't use IndexedDB (if needed).
+	// Or, create shared worker.
 	db := idb.New(dbName, printError)
 
 	v := view.NewHTMLView()
