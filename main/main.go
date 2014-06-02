@@ -39,8 +39,6 @@ func isDevelopment() bool {
 }
 
 func ready() {
-	// FIXME: Create 'export' link
-
 	// TODO: Don't use IndexedDB (if needed).
 	// Or, create shared worker.
 	db := idb.New(dbName, printError)
