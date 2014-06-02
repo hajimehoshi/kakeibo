@@ -14,6 +14,9 @@ type ItemData struct {
 }
 
 func (i *ItemData) IsValid() bool {
+	if !i.Meta.IsValid() {
+		return false
+	}
 	if i.Subject == "" {
 		return false
 	}

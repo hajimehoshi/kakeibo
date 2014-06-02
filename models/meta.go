@@ -17,3 +17,7 @@ func NewMeta() Meta {
 		ID: uuid.Generate(),
 	}
 }
+
+func (m *Meta) IsValid() bool {
+	return m.ID.IsValid()
+}

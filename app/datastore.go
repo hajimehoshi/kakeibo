@@ -48,12 +48,14 @@ func (d *ItemDatastore) datastoreKey(id uuid.UUID) *datastore.Key {
 		d.rootKey)
 }
 
+// TODO: Create 'Item' struct and make it have 'Save' method?
+
 func (d *ItemDatastore) Put(
 	lastUpdated time.Time,
 	reqItems []*models.ItemData) (now time.Time, err error) {
 	now = time.Now().UTC()
 	if now.Before(lastUpdated) {
-		err = errors.New("last-updated is too new")
+		err = errors.New("ItemDatastore.Put: last-updated is too new")
 		return
 	}
 	f := func(c appengine.Context) error {
@@ -67,6 +69,7 @@ func (d *ItemDatastore) Put(
 			case nil:
 				if d.userID != existingData.Meta.UserID {
 					e := fmt.Sprintf(
+						"ItemDatastorePut: " +
 						"invalid UUID: %s",
 						id.String())
 					return errors.New(e)
