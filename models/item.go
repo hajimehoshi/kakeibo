@@ -2,7 +2,6 @@ package models
 
 import (
 	"github.com/hajimehoshi/kakeibo/date"
-	"time"
 )
 
 // FIXME: Implement 'income' and 'outgo'

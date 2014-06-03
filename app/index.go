@@ -62,6 +62,10 @@ func parseRequest(r *http.Request) (
 			err = errors.New("invalid data")
 			return
 		}
+		if !v.IsValid() {
+			err = errors.New("invalid item")
+			return
+		}
 		reqItems = append(reqItems, v)
 	}
 	return

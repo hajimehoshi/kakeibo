@@ -12,6 +12,8 @@ import (
 )
 
 type Storage interface {
+	// TODO: This takes interface{} because of the IndexedDB. This can be
+	// fixed.
 	Save(interface{}) error
 }
 
