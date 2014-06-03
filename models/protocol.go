@@ -34,9 +34,12 @@ func toItemData(raw json.RawMessage) ([]interface{}, error) {
 	if err := json.Unmarshal(raw, &values); err != nil {
 		return nil, err
 	}
-	result := make([]interface{}, 0, len(values))
-	for _, v := range values {
-		result = append(result, v)
+	result := make([]interface{}, len(values))
+	for i, v := range values {
+		if !v.IsValid() {
+			return nil, errors.New("protocol: invalid item")
+		}
+		result[i] = v
 	}
 	return result, nil
 }
