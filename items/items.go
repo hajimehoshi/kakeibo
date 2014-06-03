@@ -33,17 +33,17 @@ const (
 
 // TODO: Should this have 'mode'?
 type Items struct {
-	items       map[uuid.UUID]*Item
+	items       map[uuid.UUID]*models.ItemData
 	view        ItemsView
 	storage     Storage
 	mode        Mode
 	yearMonth   date.Date
-	editingItem *Item
+	editingItem *models.ItemData
 }
 
 func New(view ItemsView, storage Storage) *Items {
 	items := &Items{
-		items:   map[uuid.UUID]*Item{},
+		items:   map[uuid.UUID]*models.ItemData{},
 		view:    view,
 		storage: storage,
 	}
@@ -64,26 +64,23 @@ func (i *Items) OnLoaded(vals []interface{}) {
 		}
 		id := d.Meta.ID
 		if item, ok := i.items[id]; ok {
-			*item.data = *d
-			item.print()
+			*item = *d
+			i.printItem(item)
 			continue
 		}
-		item := &Item{
-			data:    d,
-			view:    i.view,
-			storage: i.storage,
-		}
-		i.items[id] = item
+		i.items[id] = d
 	}
 	i.printYearMonths()
 	i.printItems()
 }
 
 func (i *Items) createEdittingItem(date date.Date) error {
-	item := newItem(i.view, i.storage)
-	item.data.Date = date
+	item := &models.ItemData{
+		Meta: models.NewMeta(),
+	}
+	item.Date = date
 	i.editingItem = item
-	id := item.data.Meta.ID
+	id := item.Meta.ID
 	i.items[id] = item
 	i.view.SetEdittingItem(id)
 	if err := i.Print(id); err != nil {
@@ -97,7 +94,32 @@ func (i *Items) Print(id uuid.UUID) error {
 	if item == nil {
 		return errors.New("Items.Print: item not found")
 	}
-	item.print()
+	if i.view == nil {
+		return nil
+	}
+	i.view.PrintItem(*item)
+	return nil
+}
+
+func (i *Items) printItem(item *models.ItemData) {
+	if i.view == nil {
+		return
+	}
+	i.view.PrintItem(*item)
+}
+
+func (i *Items) saveItem(item *models.ItemData) error {
+	// TODO: Confine calling IsValid here
+	if !item.IsValid() {
+		return errors.New("Items.saveItem: invalid data")
+	}
+	item.Meta.LastUpdated = time.Time{}
+	if i.storage == nil {
+		return nil
+	}
+	if err := i.storage.Save(item); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -106,7 +128,8 @@ func (i *Items) UpdateDate(id uuid.UUID, date date.Date) error {
 	if item == nil {
 		return errors.New("Items.UpdateDate: item not found")
 	}
-	item.updateDate(date)
+	item.Date = date
+	i.printItem(item)
 	return nil
 }
 
@@ -115,7 +138,8 @@ func (i *Items) UpdateSubject(id uuid.UUID, subject string) error {
 	if item == nil {
 		return errors.New("Items.UpdateSubject: item not found")
 	}
-	item.updateSubject(subject)
+	item.Subject = subject
+	i.printItem(item)
 	return nil
 }
 
@@ -124,7 +148,8 @@ func (i *Items) UpdateAmount(id uuid.UUID, amount int32) error {
 	if item == nil {
 		return errors.New("Items.UpdateAmount: item not found")
 	}
-	item.updateAmount(amount)
+	item.Amount = amount
+	i.printItem(item)
 	return nil
 }
 
@@ -133,14 +158,11 @@ func (i *Items) Save(id uuid.UUID) error {
 	if item == nil {
 		return errors.New("Items.Save: item not found")
 	}
-	if !item.data.IsValid() {
-		return errors.New("Items.Save: invalid item")
-	}
-	if err := item.save(); err != nil {
+	if err := i.saveItem(item); err != nil {
 		return err
 	}
 	if i.editingItem == item {
-		i.createEdittingItem(item.data.Date)
+		i.createEdittingItem(item.Date)
 	}
 	i.printItems()
 	i.printYearMonths()
@@ -152,13 +174,11 @@ func (i *Items) Destroy(id uuid.UUID) error {
 	if item == nil {
 		return errors.New("Items.Save: item not found")
 	}
-	meta := item.data.Meta
-	meta.LastUpdated = time.Time{}
-	meta.IsDeleted = true
-	item.data = &models.ItemData{Meta: meta}
-	if err := item.save(); err != nil {
+	item.Destroy()
+	if err := i.saveItem(item); err != nil {
 		return err
 	}
+	i.printItem(item)
 	i.printItems()
 	i.printYearMonths()
 	return nil
@@ -207,28 +227,28 @@ func (s sortItemsByDate) Swap(i, j int) {
 func (s sortItemsByDate) Less(i, j int) bool {
 	i1 := s.items.get(s.ids[i])
 	i2 := s.items.get(s.ids[j])
-	if i1.data.Date != i2.data.Date {
-		return i1.data.Date < i2.data.Date
+	if i1.Date != i2.Date {
+		return i1.Date < i2.Date
 	}
-	return i1.data.Subject < i2.data.Subject
+	return i1.Subject < i2.Subject
 }
 
 func (i *Items) printAllItems() {
 	ids := []uuid.UUID{}
 	for _, item := range i.items {
-		if item.data.Meta.IsDeleted {
+		if item.Meta.IsDeleted {
 			continue
 		}
 		if item == i.editingItem {
 			continue
 		}
-		ids = append(ids, item.data.Meta.ID)
+		ids = append(ids, item.Meta.ID)
 	}
 	s := sortItemsByDate{i, ids}
 	sort.Sort(s)
 	i.view.PrintItems(ids)
 	for _, id := range ids {
-		i.get(id).print()
+		i.printItem(i.get(id))
 	}
 }
 
@@ -237,28 +257,28 @@ func (i *Items) printYearMonthItems() {
 	ids := []uuid.UUID{}
 	total := 0
 	for _, item := range i.items {
-		if item.data.Meta.IsDeleted {
+		if item.Meta.IsDeleted {
 			continue
 		}
 		if item == i.editingItem {
 			continue
 		}
-		d := item.data.Date
+		d := item.Date
 		if d.Year() != ym.Year() || d.Month() != ym.Month() {
 			continue
 		}
-		ids = append(ids, item.data.Meta.ID)
-		total += int(item.data.Amount)
+		ids = append(ids, item.Meta.ID)
+		total += int(item.Amount)
 	}
 	s := sortItemsByDate{i, ids}
 	sort.Sort(s)
 	i.view.PrintItemsAndTotal(ids, total)
 	for _, id := range ids {
-		i.get(id).print()
+		i.printItem(i.get(id))
 	}
 }
 
-func (i *Items) get(id uuid.UUID) *Item {
+func (i *Items) get(id uuid.UUID) *models.ItemData {
 	if item, ok := i.items[id]; ok {
 		return item
 	}
@@ -282,13 +302,13 @@ func (s sortDateDesc) Less(i, j int) bool {
 func (i *Items) printYearMonths() {
 	yms := map[date.Date]struct{}{}
 	for _, item := range i.items {
-		if item.data.Meta.IsDeleted {
+		if item.Meta.IsDeleted {
 			continue
 		}
 		if item == i.editingItem {
 			continue
 		}
-		d := item.data.Date
+		d := item.Date
 		y := d.Year()
 		m := d.Month()
 		yms[date.New(y, m, 1)] = struct{}{}
