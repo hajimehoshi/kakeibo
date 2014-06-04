@@ -1,6 +1,8 @@
 package items
 
 import (
+	"bytes"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"github.com/hajimehoshi/kakeibo/date"
@@ -24,6 +26,7 @@ type ItemsView interface {
 	PrintItemsAndTotal(ids []uuid.UUID, total int)
 	PrintItem(data models.ItemData)
 	PrintYearMonths([]date.Date)
+	Download(b []byte, filename string)
 }
 
 type Mode int
@@ -323,4 +326,31 @@ func (i *Items) printYearMonths() {
 	s := sortDateDesc(result)
 	sort.Sort(s)
 	i.view.PrintYearMonths(result)
+}
+
+func (i *Items) DownloadCSV() error {
+	// TODO: Refactoring
+	ids := []uuid.UUID{}
+	for _, item := range i.items {
+		if item.Meta.IsDeleted {
+			continue
+		}
+		if item == i.editingItem {
+			continue
+		}
+		ids = append(ids, item.Meta.ID)
+	}
+	s := sortItemsByDate{i, ids}
+	sort.Sort(s)
+
+	buf := &bytes.Buffer{}
+	w := csv.NewWriter(buf)
+	for _, id := range ids {
+		item := i.get(id)
+		r := item.CSVRecord()
+		w.Write(r)
+	}
+	w.Flush()
+	i.view.Download(buf.Bytes(), "kakeibo.csv")
+	return nil
 }

@@ -21,6 +21,7 @@ type Items interface {
 	Save(id uuid.UUID) error
 	Destroy(id uuid.UUID) error
 	UpdateMode(mode items.Mode, ym date.Date)
+	DownloadCSV() error
 }
 
 func printError(val interface{}) {
@@ -201,6 +202,9 @@ func NewHTMLView() *HTMLView {
 	form := document.Call("getElementById", "form_item")
 	form.Set("onsubmit", v.onSubmit)
 
+	a := document.Call("getElementById", "link_export_as_csv")
+	a.Set("onclick", v.onClickExportAsCSV)
+
 	return v
 }
 
@@ -245,6 +249,14 @@ func (v *HTMLView) onSubmit(e js.Object) {
 		return
 	}
 	if err := v.items.Save(id); err != nil {
+		printError(err.Error())
+		return
+	}
+}
+
+func (v *HTMLView) onClickExportAsCSV(e js.Object) {
+	e.Call("preventDefault")
+	if err := v.items.DownloadCSV(); err != nil {
 		printError(err.Error())
 		return
 	}
@@ -385,4 +397,24 @@ func (v *HTMLView) onClickToDelete(e js.Object) {
 		printError(err.Error())
 		return
 	}
+}
+
+func (v *HTMLView) Download(b []byte, filename string) {
+	document := js.Global.Get("document")
+	a := document.Call("createElement", "a")
+	blob := js.Global.Get("Blob").New(
+		[][]byte{ b },
+		map[string]string{
+			"type": "application/octet-stream",
+		},
+	)
+	url := js.Global.Get("URL").Call("createObjectURL", blob)
+	// TODO: Fix this after https://github.com/gopherjs/gopherjs/issues/45
+	// is fixed.
+	defer func() {
+		js.Global.Get("URL").Call("revokeObjectURL", url)
+	}()
+	a.Set("href", url)
+	a.Set("download", filename)
+	a.Call("click")
 }

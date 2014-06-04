@@ -2,6 +2,7 @@ package models
 
 import (
 	"github.com/hajimehoshi/kakeibo/date"
+	"strconv"
 )
 
 // FIXME: Implement 'income' and 'outgo'
@@ -31,3 +32,29 @@ func (i *ItemData) Destroy() {
 	meta.IsDeleted = true
 	*i = ItemData{Meta: meta}
 }
+
+func (i *ItemData) CSVRecord() []string {
+	return []string{
+		i.Date.String(),
+		i.Subject,
+		strconv.Itoa(int(i.Amount)),
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
