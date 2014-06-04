@@ -31,11 +31,3 @@ func (i *ItemData) Destroy() {
 	meta.IsDeleted = true
 	*i = ItemData{Meta: meta}
 }
-
-
-
-
-
-
-
-
