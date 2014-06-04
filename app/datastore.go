@@ -69,8 +69,8 @@ func (d *ItemDatastore) Put(
 			case nil:
 				if d.userID != existingData.Meta.UserID {
 					e := fmt.Sprintf(
-						"ItemDatastorePut: " +
-						"invalid UUID: %s",
+						"ItemDatastorePut: "+
+							"invalid UUID: %s",
 						id.String())
 					return errors.New(e)
 				}

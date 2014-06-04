@@ -11,10 +11,12 @@ const Zero = UUID("00000000-0000-4000-8000-000000000000")
 
 const parsePattern = "^([0-9a-fA-F]{8})-([0-9a-fA-F]{4})-" +
 	"(4[0-9a-fA-F]{3})-([89abAB][0-9a-fA-F]{3})-([0-9a-fA-F]{12})$"
+
 var parseReg = regexp.MustCompile(parsePattern)
 
 const strictPattern = "^([0-9a-f]{8})-([0-9a-f]{4})-" +
 	"(4[0-9a-f]{3})-([89ab][0-9a-f]{3})-([0-9a-f]{12})$"
+
 var strictReg = regexp.MustCompile(strictPattern)
 
 // Google App Engine's datastore doesn't accept a fixed-size array. Use string

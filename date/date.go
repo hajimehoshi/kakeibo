@@ -14,7 +14,7 @@ type Date int32
 
 func New(year int, month time.Month, day int) Date {
 	t := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
-	v := t.Unix() / secondsPerDay + unixEpochDays
+	v := t.Unix()/secondsPerDay + unixEpochDays
 	return Date(v)
 }
 

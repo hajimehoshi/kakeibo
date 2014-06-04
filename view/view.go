@@ -403,7 +403,7 @@ func (v *HTMLView) Download(b []byte, filename string) {
 	document := js.Global.Get("document")
 	a := document.Call("createElement", "a")
 	blob := js.Global.Get("Blob").New(
-		[][]byte{ b },
+		[][]byte{b},
 		map[string]string{
 			"type": "application/octet-stream",
 		},
