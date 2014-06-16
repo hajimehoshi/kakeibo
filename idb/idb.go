@@ -190,6 +190,11 @@ func (i *IDB) Init(models []Model) {
 }
 
 func (i *IDB) sync(m Model) {
+	if !i.lastUpdated.IsZero() {
+		i.sync2(m)
+		return
+	}
+
 	maxLastUpdated := time.Time{}
 
 	db := i.db
@@ -208,37 +213,50 @@ func (i *IDB) sync(m Model) {
 				i.onError(err)
 				return
 			}
+			if i.lastUpdated.Before(maxLastUpdated) {
+				i.lastUpdated = maxLastUpdated
+			}
 		}
-		// A record whose LastUpdated is zero time means a record which
-		// is not synced.
-		zerot, _ := time.Time{}.MarshalText()
-		req := idx.Call("openCursor", string(zerot))
-		values := []interface{}{}
-		req.Set("onsuccess", func(e js.Object) {
-			cursor := e.Get("target").Get("result")
-			if cursor.IsNull() {
-				i.sync2(m, maxLastUpdated, values)
-				return
-			}
-			j := cursor.Get("value")
-			jStr := jsonStringify(j)
-			value := reflect.New(t).Interface()
-			if err := json.Unmarshal([]byte(jStr), value);
-			err != nil {
-				i.onError(err)
-				cursor.Call("continue")
-				return
-			}
-			values = append(values, value)
-			cursor.Call("continue")
-			return
-		})
-		req.Set("onerror", i.idxOnError)
+		i.sync2(m)
 	})
 	req.Set("onerror", i.idxOnError)
 }
 
-func (i *IDB) sync2(m Model, maxLastUpdated time.Time, values []interface{}) {
+func (i *IDB) sync2(m Model) {
+	// A record whose LastUpdated is zero time means a record which is not
+	// synced.
+	zerot, _ := time.Time{}.MarshalText()
+
+	db := i.db
+	t := m.Type()
+	tr := db.Call("transaction", t.Name(), "readonly")
+	s := tr.Call("objectStore", t.Name())
+	idx := s.Call("index", lastUpdatedIndex)
+	req := idx.Call("openCursor", string(zerot))
+	values := []interface{}{}
+	req.Set("onsuccess", func(e js.Object) {
+		cursor := e.Get("target").Get("result")
+		if cursor.IsNull() {
+			i.sync3(m, values)
+			return
+		}
+		j := cursor.Get("value")
+		jStr := jsonStringify(j)
+		value := reflect.New(t).Interface()
+		if err := json.Unmarshal([]byte(jStr), value);
+		err != nil {
+			i.onError(err)
+			cursor.Call("continue")
+			return
+		}
+		values = append(values, value)
+		cursor.Call("continue")
+		return
+	})
+	req.Set("onerror", i.idxOnError)
+}
+
+func (i *IDB) sync3(m Model, values []interface{}) {
 	req := js.Global.Get("XMLHttpRequest").New()
 	req.Call("open", "POST", "/sync", true)
 	req.Set("onload", func(e js.Object) {
@@ -266,12 +284,13 @@ func (i *IDB) sync2(m Model, maxLastUpdated time.Time, values []interface{}) {
 			}
 			vals = append(vals, v)
 		}
+		i.lastUpdated = res.LastUpdated
 		m.OnLoaded(vals)
 	})
 	req.Set("onerror", i.jsOnError)
 	request := models.SyncRequest{
 		Type:        m.Type().Name(),
-		LastUpdated: maxLastUpdated,
+		LastUpdated: i.lastUpdated,
 		Values:      values,
 	}
 	str, _ := json.Marshal(request)

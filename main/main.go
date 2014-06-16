@@ -33,6 +33,7 @@ func main() {
 	deleteDBIfUserChanged(dbName, ready)
 }
 
+// FIXME: Use appengine.IsDevAppServer() instead
 func isDevelopment() bool {
 	hostname := js.Global.Get("location").Get("hostname").Str()
 	return hostname == "localhost" || hostname == "127.0.0.1"
