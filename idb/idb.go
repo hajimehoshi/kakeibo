@@ -145,7 +145,9 @@ func (i *IDB) SyncIfNeeded(models []Model) {
 		return
 	}
 	for _, m := range models {
-		i.sync(m)
+		i.initLastUpdated(m, func(m Model) {
+			i.getUnsyncedItems(m, i.sync)
+		})
 	}
 	i.syncNeeded = false
 }
@@ -189,9 +191,9 @@ func (i *IDB) Init(models []Model) {
 	req.Set("onerror", i.idxOnError)
 }
 
-func (i *IDB) sync(m Model) {
+func (i *IDB) initLastUpdated(m Model, f func(Model)) {
 	if !i.lastUpdated.IsZero() {
-		i.sync2(m)
+		f(m)
 		return
 	}
 
@@ -217,12 +219,12 @@ func (i *IDB) sync(m Model) {
 				i.lastUpdated = maxLastUpdated
 			}
 		}
-		i.sync2(m)
+		f(m)
 	})
 	req.Set("onerror", i.idxOnError)
 }
 
-func (i *IDB) sync2(m Model) {
+func (i *IDB) getUnsyncedItems(m Model, f func(Model, []interface{})) {
 	// A record whose LastUpdated is zero time means a record which is not
 	// synced.
 	zerot, _ := time.Time{}.MarshalText()
@@ -237,7 +239,7 @@ func (i *IDB) sync2(m Model) {
 	req.Set("onsuccess", func(e js.Object) {
 		cursor := e.Get("target").Get("result")
 		if cursor.IsNull() {
-			i.sync3(m, values)
+			f(m, values)
 			return
 		}
 		j := cursor.Get("value")
@@ -256,7 +258,7 @@ func (i *IDB) sync2(m Model) {
 	req.Set("onerror", i.idxOnError)
 }
 
-func (i *IDB) sync3(m Model, values []interface{}) {
+func (i *IDB) sync(m Model, values []interface{}) {
 	req := js.Global.Get("XMLHttpRequest").New()
 	req.Call("open", "POST", "/sync", true)
 	req.Set("onload", func(e js.Object) {
