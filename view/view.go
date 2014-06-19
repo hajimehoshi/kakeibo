@@ -409,11 +409,7 @@ func (v *HTMLView) Download(b []byte, filename string) {
 		},
 	)
 	url := js.Global.Get("URL").Call("createObjectURL", blob)
-	// TODO: Fix this after https://github.com/gopherjs/gopherjs/issues/45
-	// is fixed.
-	defer func() {
-		js.Global.Get("URL").Call("revokeObjectURL", url)
-	}()
+	defer js.Global.Get("URL").Call("revokeObjectURL", url)
 	a.Set("href", url)
 	a.Set("download", filename)
 	a.Call("click")
