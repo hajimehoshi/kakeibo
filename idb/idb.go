@@ -122,7 +122,7 @@ func (i *IDB) loadAll(m Model) error {
 		}
 		v := reflect.New(t).Interface()
 		j := jsonStringify(value)
-		if err := json.Unmarshal([]byte(j), v); err != nil {
+		if err := json.Unmarshal([]byte(j), &v); err != nil {
 			i.onError(err)
 			return
 		}
@@ -245,8 +245,7 @@ func (i *IDB) getUnsyncedItems(m Model, f func(Model, []interface{})) {
 		j := cursor.Get("value")
 		jStr := jsonStringify(j)
 		value := reflect.New(t).Interface()
-		if err := json.Unmarshal([]byte(jStr), value);
-		err != nil {
+		if err := json.Unmarshal([]byte(jStr), &value); err != nil {
 			i.onError(err)
 			cursor.Call("continue")
 			return
