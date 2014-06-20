@@ -24,10 +24,6 @@ type Items interface {
 	DownloadCSV() error
 }
 
-func printError(val interface{}) {
-	js.Global.Get("console").Call("error", val)
-}
-
 // TODO: I18N
 
 const (
@@ -139,55 +135,9 @@ func printValueAt(e js.Object, name string, value string) {
 	}
 }
 
-func addEventListeners(items Items, form js.Object) {
-	inputDate := form.Call("querySelector", "input[name=Date]")
-	inputDate.Set("onchange", func(e js.Object) {
-		id, err := getIDFromElement(e.Get("target"))
-		if err != nil {
-			printError(err.Error())
-			return
-		}
-		dateStr := e.Get("target").Get("value").Str()
-		d, err := date.ParseISO8601(dateStr)
-		if err != nil {
-			printError(err.Error())
-			return
-		}
-		if err := items.UpdateDate(id, d); err != nil {
-			printError(err.Error())
-			return
-		}
-	})
-	inputSubject := form.Call("querySelector", "input[name=Subject]")
-	inputSubject.Set("onchange", func(e js.Object) {
-		id, err := getIDFromElement(e.Get("target"))
-		if err != nil {
-			printError(err.Error())
-			return
-		}
-		subject := e.Get("target").Get("value").Str()
-		if err := items.UpdateSubject(id, subject); err != nil {
-			printError(err.Error())
-			return
-		}
-	})
-	inputMoneyAmount := form.Call("querySelector", "input[name=Amount]")
-	inputMoneyAmount.Set("onchange", func(e js.Object) {
-		id, err := getIDFromElement(e.Get("target"))
-		if err != nil {
-			printError(err.Error())
-			return
-		}
-		amount := int32(e.Get("target").Get("value").Int())
-		if err := items.UpdateAmount(id, amount); err != nil {
-			printError(err.Error())
-			return
-		}
-	})
-}
-
 type HTMLView struct {
-	items Items
+	items       Items
+	onErrorFunc func(error)
 }
 
 func empty(e js.Object) {
@@ -196,8 +146,10 @@ func empty(e js.Object) {
 	}
 }
 
-func NewHTMLView() *HTMLView {
-	v := &HTMLView{}
+func NewHTMLView(onErrorFunc func(error)) *HTMLView {
+	v := &HTMLView{
+		onErrorFunc: onErrorFunc,
+	}
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
 	form.Set("onsubmit", v.onSubmit)
@@ -208,11 +160,58 @@ func NewHTMLView() *HTMLView {
 	return v
 }
 
+func (v *HTMLView) addEventListeners(items Items, form js.Object) {
+	inputDate := form.Call("querySelector", "input[name=Date]")
+	inputDate.Set("onchange", func(e js.Object) {
+		id, err := getIDFromElement(e.Get("target"))
+		if err != nil {
+			v.onErrorFunc(err)
+			return
+		}
+		dateStr := e.Get("target").Get("value").Str()
+		d, err := date.ParseISO8601(dateStr)
+		if err != nil {
+			v.onErrorFunc(err)
+			return
+		}
+		if err := items.UpdateDate(id, d); err != nil {
+			v.onErrorFunc(err)
+			return
+		}
+	})
+	inputSubject := form.Call("querySelector", "input[name=Subject]")
+	inputSubject.Set("onchange", func(e js.Object) {
+		id, err := getIDFromElement(e.Get("target"))
+		if err != nil {
+			v.onErrorFunc(err)
+			return
+		}
+		subject := e.Get("target").Get("value").Str()
+		if err := items.UpdateSubject(id, subject); err != nil {
+			v.onErrorFunc(err)
+			return
+		}
+	})
+	inputMoneyAmount := form.Call("querySelector", "input[name=Amount]")
+	inputMoneyAmount.Set("onchange", func(e js.Object) {
+		id, err := getIDFromElement(e.Get("target"))
+		if err != nil {
+			v.onErrorFunc(err)
+			return
+		}
+		amount := int32(e.Get("target").Get("value").Int())
+		if err := items.UpdateAmount(id, amount); err != nil {
+			v.onErrorFunc(err)
+			return
+		}
+	})
+}
+
 func (v *HTMLView) SetItems(items *items.Items) {
 	v.items = items
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
-	addEventListeners(items, form)
+	v.addEventListeners(items, form)
 }
 
 func (v *HTMLView) OnHashChange(e js.Object) {
@@ -233,7 +232,7 @@ func (v *HTMLView) OnHashChange(e js.Object) {
 	default:
 		ym, err := date.ParseISO8601(hash + "-01")
 		if err != nil {
-			printError(err.Error())
+			v.onErrorFunc(err)
 			return
 		}
 		v.updateMode(items.ModeYearMonth, ym)
@@ -245,11 +244,11 @@ func (v *HTMLView) onSubmit(e js.Object) {
 	form := e.Get("target")
 	id, err := getIDFromElement(form)
 	if err != nil {
-		printError(err.Error())
+		v.onErrorFunc(err)
 		return
 	}
 	if err := v.items.Save(id); err != nil {
-		printError(err.Error())
+		v.onErrorFunc(err)
 		return
 	}
 }
@@ -257,7 +256,7 @@ func (v *HTMLView) onSubmit(e js.Object) {
 func (v *HTMLView) onClickExportAsCSV(e js.Object) {
 	e.Call("preventDefault")
 	if err := v.items.DownloadCSV(); err != nil {
-		printError(err.Error())
+		v.onErrorFunc(err)
 		return
 	}
 }
@@ -389,12 +388,12 @@ func (v *HTMLView) onClickToDelete(e js.Object) {
 	e.Call("preventDefault")
 	id, err := getIDFromElement(e.Get("target"))
 	if err != nil {
-		printError(err.Error())
+		v.onErrorFunc(err)
 		return
 	}
 	// TODO: Show confirming alert if needed.
 	if err := v.items.Destroy(id); err != nil {
-		printError(err.Error())
+		v.onErrorFunc(err)
 		return
 	}
 }

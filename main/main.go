@@ -44,7 +44,7 @@ func ready() {
 	// Or, create shared worker.
 	db := idb.New(dbName, printError)
 
-	v := view.NewHTMLView()
+	v := view.NewHTMLView(printError)
 	items := items.New(v, db)
 	v.SetItems(items)
 
