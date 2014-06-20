@@ -20,7 +20,7 @@ type Storage interface {
 }
 
 type ItemsView interface {
-	SetEdittingItem(id uuid.UUID)
+	SetEditingItem(id uuid.UUID)
 	PrintTitle(title string)
 	PrintItems(ids []uuid.UUID)
 	PrintItemsAndTotal(ids []uuid.UUID, total int)
@@ -52,7 +52,7 @@ func New(view ItemsView, storage Storage) *Items {
 		view:    view,
 		storage: storage,
 	}
-	items.createEdittingItem(date.Today())
+	items.createEditingItem(date.Today())
 	return items
 }
 
@@ -79,7 +79,7 @@ func (i *Items) OnLoaded(vals []interface{}) {
 	i.printItems()
 }
 
-func (i *Items) createEdittingItem(date date.Date) error {
+func (i *Items) createEditingItem(date date.Date) error {
 	item := &models.ItemData{
 		Meta: models.NewMeta(),
 	}
@@ -87,7 +87,7 @@ func (i *Items) createEdittingItem(date date.Date) error {
 	i.editingItem = item
 	id := item.Meta.ID
 	i.items[id] = item
-	i.view.SetEdittingItem(id)
+	i.view.SetEditingItem(id)
 	if err := i.Print(id); err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func (i *Items) Save(id uuid.UUID) error {
 		return err
 	}
 	if i.editingItem == item {
-		i.createEdittingItem(item.Date)
+		i.createEditingItem(item.Date)
 	}
 	i.printItems()
 	i.printYearMonths()

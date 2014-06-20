@@ -261,7 +261,7 @@ func (v *HTMLView) onClickExportAsCSV(e js.Object) {
 	}
 }
 
-func (v *HTMLView) SetEdittingItem(id uuid.UUID) {
+func (v *HTMLView) SetEditingItem(id uuid.UUID) {
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
 	form.Get("dataset").Set(toDatasetProp(datasetAttrID), id.String())
