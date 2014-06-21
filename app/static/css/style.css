@@ -31,7 +31,7 @@ body > header p {
     position: absolute;
     right: 24px;
     text-align: right;
-    top: calc(6px + 24px);
+    top: 6px;
 }
 h1:empty {
     display: none;
@@ -69,9 +69,9 @@ address, caption, dialog, input, ol, p, pre, table, ul {
     top: 7px;
 }
 body > header h1 {
-    font-size: 20px;
+    font-size: 14px;
     line-height: 24px;
-    top: 28px;
+    top: 6px;
 }
 body > nav h1 {
     font-size: 14px;
@@ -117,16 +117,19 @@ td, th {
 /*
  * Colors
  */
+#mode {
+    color: #ccc;
+}
 body {
     background-color: #fff;
     color: #333;
 }
 body > header {
-    background-color: #333;
+    background-color: #3366b3;
     color: #fff;
 }
 body > nav {
-    background-color: #eeeef2;
+    background-color: #dde4ee;
 }
 a:link {
     color: #222;
@@ -160,11 +163,11 @@ body > section {
     padding-right: 24px;
 }
 body > header {
-    height: 60px;
+    height: 36px;
 }
 body > nav,
 body > section {
-    height: calc(100% - 60px);
+    height: calc(100% - 36px);
     overflow: auto;
     padding-bottom: 12px;
     padding-top: 12px;
@@ -174,7 +177,7 @@ body > nav {
 }
 body > section {
     position: absolute;
-    top: 60px;
+    top: 36px;
     left: 240px;
     width: calc(100% - 240px);
 }
@@ -293,7 +296,6 @@ input[type=submit] {
     display: none;
 }
 #mode {
-    color: #ecc;
     margin-left: 8px;
 }
 #debug_overlay {
