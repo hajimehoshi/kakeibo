@@ -286,6 +286,9 @@ input[type=submit] {
     #form_item {
         display: none;
     }
+    td.action, th.action {
+        display: none;
+    }
 }
 
 /*

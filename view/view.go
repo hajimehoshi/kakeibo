@@ -377,6 +377,7 @@ func (v *HTMLView) addIDToItemTable(id uuid.UUID) {
 	a.Call("setAttribute", "href", "")
 	td := document.Call("createElement", "td")
 	td.Call("appendChild", a)
+	td.Get("classList").Call("add", "action")
 	a.Set("onclick", v.onClickToDelete)
 	tr.Call("appendChild", td)
 
