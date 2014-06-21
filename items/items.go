@@ -235,7 +235,10 @@ func (s sortItemsByDate) Less(i, j int) bool {
 	if i1.Date != i2.Date {
 		return i1.Date < i2.Date
 	}
-	return i1.Subject < i2.Subject
+	if i1.Subject != i2.Subject {
+		return i1.Subject < i2.Subject
+	}
+	return i1.Amount < i2.Amount
 }
 
 func (i *Items) printNoItems() {
