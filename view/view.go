@@ -214,6 +214,15 @@ func (v *HTMLView) SetItems(items *items.Items) {
 	v.addEventListeners(items, form)
 }
 
+func removeSingleHash() {
+	href := js.Global.Get("location").Get("href").Str()
+	if 0 < len(href) && href[len(href)-1] == '#' {
+		href = href[:len(href)-2]
+		js.Global.Get("history").Call(
+			"replaceState", "", "", href)
+	}
+}
+
 func (v *HTMLView) OnHashChange(e js.Object) {
 	hash := js.Global.Get("location").Get("hash").Str()
 	// Remove the initial '#'
@@ -222,13 +231,8 @@ func (v *HTMLView) OnHashChange(e js.Object) {
 	}
 	switch hash {
 	case "":
-		href := js.Global.Get("location").Get("href").Str()
-		if 0 < len(href) && href[len(href)-1] == '#' {
-			href = href[:len(href)-2]
-			js.Global.Get("history").Call(
-				"replaceState", "", "", href)
-		}
-		v.updateMode(items.ModeAll, date.Date(0))
+		removeSingleHash()
+		v.updateMode(items.ModeTop, date.Date(0))
 	default:
 		ym, err := date.ParseISO8601(hash + "-01")
 		if err != nil {
@@ -285,6 +289,11 @@ func (v *HTMLView) PrintItems(ids []uuid.UUID) {
 	for _, id := range ids {
 		v.addIDToItemTable(id)
 	}
+	display := "table"
+	if len(ids) == 0 {
+		display = "none"
+	}
+	table.Get("style").Set("display", display)
 }
 
 func (v *HTMLView) PrintItemsAndTotal(ids []uuid.UUID, total int) {
