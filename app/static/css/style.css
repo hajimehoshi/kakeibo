@@ -163,21 +163,21 @@ body > section {
     padding-right: 24px;
 }
 body > header {
-    height: 36px;
+    height: 32px;
 }
 body > nav,
 body > section {
-    height: calc(100% - 36px);
+    height: calc(100% - 32px);
     overflow: auto;
     padding-bottom: 12px;
-    padding-top: 12px;
+    padding-top: 16px;
 }
 body > nav {
     width: 240px;
 }
 body > section {
     position: absolute;
-    top: 36px;
+    top: 32px;
     left: 240px;
     width: calc(100% - 240px);
 }
