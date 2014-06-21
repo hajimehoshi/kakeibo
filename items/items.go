@@ -32,7 +32,7 @@ type ItemsView interface {
 type Mode int
 
 const (
-	ModeAll Mode = iota
+	ModeTop Mode = iota
 	ModeYearMonth
 )
 
@@ -191,8 +191,8 @@ func (i *Items) Destroy(id uuid.UUID) error {
 
 func (i *Items) title() string {
 	switch i.mode {
-	case ModeAll:
-		return "All"
+	case ModeTop:
+		return ""
 	case ModeYearMonth:
 		ym := i.yearMonth
 		return fmt.Sprintf("%04d-%02d", ym.Year(), ym.Month())
@@ -209,8 +209,8 @@ func (i *Items) UpdateMode(mode Mode, ym date.Date) {
 
 func (i *Items) printItems() {
 	switch i.mode {
-	case ModeAll:
-		i.printAllItems()
+	case ModeTop:
+		i.printNoItems()
 	case ModeYearMonth:
 		i.printYearMonthItems()
 	}
@@ -238,23 +238,8 @@ func (s sortItemsByDate) Less(i, j int) bool {
 	return i1.Subject < i2.Subject
 }
 
-func (i *Items) printAllItems() {
-	ids := []uuid.UUID{}
-	for _, item := range i.items {
-		if item.Meta.IsDeleted {
-			continue
-		}
-		if item == i.editingItem {
-			continue
-		}
-		ids = append(ids, item.Meta.ID)
-	}
-	s := sortItemsByDate{i, ids}
-	sort.Sort(s)
-	i.view.PrintItems(ids)
-	for _, id := range ids {
-		i.printItem(i.get(id))
-	}
+func (i *Items) printNoItems() {
+	i.view.PrintItems([]uuid.UUID{})
 }
 
 func (i *Items) printYearMonthItems() {
