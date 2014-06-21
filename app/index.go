@@ -37,8 +37,9 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	u := user.Current(c)
 	url, _ := user.LogoutURL(c, "/")
 	tmpl.Execute(w, map[string]interface{}{
-		"UserEmail": u.Email,
-		"LogoutURL": url,
+		"UserEmail":         u.Email,
+		"IsDevelopmentMode": appengine.IsDevAppServer(),
+		"LogoutURL":         url,
 	})
 }
 

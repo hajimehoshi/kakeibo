@@ -17,7 +17,7 @@ func printError(err error) {
 func deleteDBIfUserChanged(name string, callback func()) {
 	ls := js.Global.Get("localStorage")
 	last := ls.Call("getItem", "last_user_email").Str()
-	current := js.Global.Get("userEmail").Str()
+	current := js.Global.Call("userEmail").Str()
 	if last == current {
 		callback()
 		return
@@ -31,12 +31,6 @@ const dbName = "kakeibo"
 
 func main() {
 	deleteDBIfUserChanged(dbName, ready)
-}
-
-// FIXME: Use appengine.IsDevAppServer() instead
-func isDevelopment() bool {
-	hostname := js.Global.Get("location").Get("hostname").Str()
-	return hostname == "localhost" || hostname == "127.0.0.1"
 }
 
 func ready() {
@@ -59,7 +53,7 @@ func ready() {
 
 	document := js.Global.Get("document")
 
-	if isDevelopment() {
+	if js.Global.Call("isDevelopmentMode").Bool() {
 		ds := document.Call("querySelectorAll", "span.development")
 		for i := 0; i < ds.Length(); i++ {
 			d := ds.Index(i)

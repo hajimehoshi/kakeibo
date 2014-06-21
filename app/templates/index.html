@@ -44,7 +44,10 @@
     </section>
     <div id="debug_overlay">
     </div>
-    <script>var userEmail = {{.UserEmail}};</script>
+    <script>
+      function userEmail() { return "{{.UserEmail}}"; }
+      function isDevelopmentMode() { return {{.IsDevelopmentMode}}; }
+    </script>
     <script src="static/scripts/main.js"></script>
   </body>
 </html>
