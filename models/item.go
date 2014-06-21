@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-// FIXME: Implement 'income' and 'outgo'
+// TODO: Implement 'income' and 'outgo'
 
 type ItemData struct {
 	Meta    Meta

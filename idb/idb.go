@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// FIXME: Use SharedWorker.
+// TODO: Use SharedWorker.
 
 const (
 	lastUpdatedIndex = "LastUpdated"
