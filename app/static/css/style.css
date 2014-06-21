@@ -27,12 +27,6 @@ ol, ul {
 html, body {
     height: 100%;
 }
-body > header p {
-    position: absolute;
-    right: 24px;
-    text-align: right;
-    top: 6px;
-}
 h1:empty {
     display: none;
 }
@@ -45,7 +39,7 @@ input {
     font-family: 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif';
 }
 body > header h1 {
-    font-weight: normal;
+    font-weight: bold;
 }
 td.number,
 input[type=number] {
@@ -71,7 +65,14 @@ address, caption, dialog, input, ol, p, pre, table, ul {
 body > header h1 {
     font-size: 14px;
     line-height: 24px;
-    top: 6px;
+    top: 7px;
+}
+body > header p {
+    padding-top: 24px;
+    position: absolute;
+    right: 24px;
+    text-align: right;
+    top: 7px;
 }
 body > nav h1 {
     font-size: 14px;
@@ -117,19 +118,19 @@ td, th {
 /*
  * Colors
  */
-#mode {
-    color: #ccc;
-}
 body {
     background-color: #fff;
     color: #333;
 }
-body > header {
-    background-color: #3366b3;
-    color: #fff;
+body > header > h1 {
+    color: #3366b3;
 }
-body > nav {
-    background-color: #dde4ee;
+#mode {
+    color: #b36633;
+    font-weight: normal;
+}
+body > header p {
+    color: #999;
 }
 a:link {
     color: #222;
@@ -142,9 +143,6 @@ a:hover {
 }
 a:active {
     color: #811;
-}
-body > header a {
-    color: #fff !important;
 }
 body > nav a {
     color: #333 !important;
@@ -163,11 +161,13 @@ body > section {
     padding-right: 24px;
 }
 body > header {
-    height: 32px;
+    padding-bottom: 24px;
+    padding-top: 24px;
+    height: 80px;
 }
 body > nav,
 body > section {
-    height: calc(100% - 32px);
+    height: calc(100% - 80px);
     overflow: auto;
     padding-bottom: 12px;
     padding-top: 16px;
@@ -177,7 +177,7 @@ body > nav {
 }
 body > section {
     position: absolute;
-    top: 32px;
+    top: 80px;
     left: 240px;
     width: calc(100% - 240px);
 }
