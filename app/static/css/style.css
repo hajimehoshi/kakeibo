@@ -39,7 +39,7 @@ input {
     font-family: 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif';
 }
 body > header h1 {
-    font-weight: bold;
+    font-weight: normal;
 }
 td.number,
 input[type=number] {
@@ -63,9 +63,12 @@ address, caption, dialog, input, ol, p, pre, table, ul {
     top: 7px;
 }
 body > header h1 {
-    font-size: 14px;
+    font-size: 18px;
     line-height: 24px;
-    top: 7px;
+    top: 6px;
+}
+#mode {
+    font-size: 14px;
 }
 body > header p {
     padding-top: 24px;
