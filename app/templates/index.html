@@ -18,13 +18,15 @@
         <li><a href="#" id="link_export_as_csv">Export as CSV</a></li>
       </ul>
     </nav>
-    <section>
+    <aside>
       <form id="form_item" method="post" data-id="">
         <input name="Date" type="date" value="" required="required" />
         <input name="Subject" type="text" placeholder="Subject" value="" required="required" />
         <input name="Amount" type="number" placeholder="Amount" value="" required="required" />
         <input type="submit" />
       </form>
+    </aside>
+    <main>
       <h1>&nbsp;</h1>
       <table id="table_items">
         <thead>
@@ -38,7 +40,7 @@
         <tbody>
         </tbody>
       </table>
-    </section>
+    </main>
     <div id="debug_overlay">
     </div>
     <script>

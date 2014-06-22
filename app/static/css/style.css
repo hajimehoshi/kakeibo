@@ -1,7 +1,7 @@
 /*
  * Reset
  */
-a, abbr, acronym, address, article, aside, audio, b, big, blockquote, body, caption, cite, code, dd, del, dfn, dialog, div, dl, dt, em, fieldset, figure, footer, form, h1, h2, h3, h4, h5, h6, header, hgroup, html, i, iframe, img, ins, input, kbd, label, legend, li, mark, menu, nav, object, ol, p, pre, q, samp, section, small, span, strong, sub, sup, table, tbody, td, tfoot, th, thead, time, tr, tt, ul, var, video {
+a, abbr, acronym, address, article, aside, audio, b, big, blockquote, body, caption, cite, code, dd, del, dfn, dialog, div, dl, dt, em, fieldset, figure, footer, form, h1, h2, h3, h4, h5, h6, header, hgroup, html, i, iframe, img, ins, input, kbd, label, legend, li, main, mark, menu, nav, object, ol, p, pre, q, samp, section, small, span, strong, sub, sup, table, tbody, td, tfoot, th, thead, time, tr, tt, ul, var, video {
     background: transparent;
     border: 0;
     margin:0;
@@ -45,6 +45,9 @@ td.number,
 input[type=number] {
     text-align: right;
 }
+input[type=submit] {
+    font-weight: bold;
+}
 th {
     font-weight: bold;
 }
@@ -82,28 +85,28 @@ body > nav h1 {
     line-height: 24px;
     top: 7px;
 }
-body > section h1 {
+body > main h1 {
     font-size: 20px;
     line-height: 24px;
     top: 5px;
 }
-body > section * + h1 {
+body > main * + h1 {
     margin-top: 24px;
 }
-body > section h2 {
+body > main h2 {
     font-size: 18px;
     line-height: 24px;
     top: 6px;
 }
-body > section * + h2 {
+body > main * + h2 {
     margin-top: 24px;
 }
-body > section h3 {
+body > main h3 {
     font-size: 14px;
     line-height: 24px;
     top: 7px;
 }
-body > section * + h3 {
+body > main * + h3 {
     margin-top: 24px;
 }
 input {
@@ -151,13 +154,20 @@ body > nav a {
     color: #333 !important;
     text-decoration: none;
 }
+input {
+    background-color: #eeeef2;
+}
+input[type=submit] {
+    background-color: #dddde4;
+}
 
 /*
  * Layout
  */
 body > header,
 body > nav,
-body > section {
+body > aside,
+body > main {
     -moz-box-sizing: border-box;
     box-sizing: border-box;
     padding-left: 24px;
@@ -166,53 +176,35 @@ body > section {
 body > header {
     padding-bottom: 24px;
     padding-top: 24px;
-    height: 80px;
+    height: 96px;
 }
 body > nav,
-body > section {
-    height: calc(100% - 80px);
+body > main {
     overflow: auto;
-    padding-bottom: 12px;
-    padding-top: 16px;
+}
+body > nav {
+    height: calc(100% - 96px);
+}
+body > aside {
+    height: 96px;
+}
+body > main {
+    height: calc(100% - 96px - 96px);
 }
 body > nav {
     width: 240px;
 }
-body > section {
+body > aside,
+body > main {
     position: absolute;
-    top: 80px;
     left: 240px;
     width: calc(100% - 240px);
 }
-
-/*
- * Grids
- */
-.colgroup {
-    display: -webkit-box;
-    display: -moz-box;
-    display: box;
+body > aside {
+    top: 96px;
 }
-.colgroup, body > section {
-    clear: both;
-}
-.colgroup > section {
-    margin-right: 24px;
-}
-.colgroup > section:last-child {
-    margin-right: 0;
-}
-.width1 {
-    width: 200px;
-}
-.width2 {
-    width: 424px;
-}
-.width3 {
-    width: 648px;
-}
-.width4 {
-    width: 872px;
+body > main {
+    top: calc(96px + 96px);
 }
 
 /*
@@ -254,7 +246,6 @@ body > nav ul:nth-child(n+2) {
  * Form
  */
 input {
-    background-color: #eeeef2;
     margin-right: 24px;
     padding-left: 8px;
     padding-right: 8px;
@@ -262,6 +253,7 @@ input {
 }
 input[type=submit] {
     border-width: 1px;
+    cursor: pointer;
     padding-left: 24px;
     padding-right: 24px;
     width: auto;
@@ -277,7 +269,7 @@ input[type=submit] {
     body > nav {
         display: none;
     }
-    body > section {
+    body > main {
         height: auto;
         left: 0;
         position: relative:

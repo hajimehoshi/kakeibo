@@ -277,7 +277,7 @@ func (v *HTMLView) updateMode(mode items.Mode, ym date.Date) {
 
 func (v *HTMLView) PrintTitle(title string) {
 	document := js.Global.Get("document")
-	h1 := document.Call("querySelector", "body > section h1")
+	h1 := document.Call("querySelector", "body > main h1")
 	h1.Set("textContent", title)
 }
 
