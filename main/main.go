@@ -14,26 +14,28 @@ func printError(err error) {
 	js.Global.Get("console").Call("error", err.Error())
 }
 
-func deleteDBIfUserChanged(name string, callback func()) {
+func deleteDBIfUserChanged(name string) chan struct{} {
+	ch := make(chan struct{})
 	ls := js.Global.Get("localStorage")
 	last := ls.Call("getItem", "last_user_email").Str()
 	current := js.Global.Call("userEmail").Str()
 	if last == current {
-		callback()
-		return
+		close(ch)
+		return ch
 	}
 	req := js.Global.Get("indexedDB").Call("deleteDatabase", name)
-	req.Set("onsuccess", callback)
+	req.Set("onsuccess", func() {
+		close(ch)
+	})
 	ls.Call("setItem", "last_user_email", current)
+	return ch
 }
 
 const dbName = "kakeibo"
 
 func main() {
-	deleteDBIfUserChanged(dbName, ready)
-}
+	<-deleteDBIfUserChanged(dbName)
 
-func ready() {
 	// TODO: Don't use IndexedDB (if needed).
 	// Or, create shared worker.
 	db := idb.New(dbName, printError)
@@ -42,14 +44,7 @@ func ready() {
 	items := items.New(v, db)
 	v.SetItems(items)
 
-	db.Init([]idb.Model{items})
-
-	var sync func()
-	sync = func() {
-		db.SyncIfNeeded([]idb.Model{items})
-		time.AfterFunc(10 * time.Second, sync) 
-	}
-	sync()
+	<-db.Init([]idb.Model{items})
 
 	document := js.Global.Get("document")
 
@@ -73,6 +68,11 @@ func ready() {
 
 	js.Global.Get("window").Set("onhashchange", v.OnHashChange)
 	js.Global.Get("window").Call("onhashchange")
+
+	for {
+		db.SyncIfNeeded([]idb.Model{items})
+		time.Sleep(10 * time.Second)
+	}
 }
 
 func toggleDebugOverlay(e js.Object) {

@@ -28,7 +28,6 @@ type IDB struct {
 	onErrorFunc  func(error)
 	db           js.Object
 	lastUpdated  time.Time
-	queue        []func()
 	syncNeeded   bool
 }
 
@@ -36,7 +35,6 @@ func New(name string, onErrorFunc func(error)) *IDB {
 	return &IDB{
 		name:        name,
 		onErrorFunc: onErrorFunc,
-		queue:       []func(){},
 		syncNeeded:  true,
 	}
 }
@@ -66,9 +64,6 @@ func (i *IDB) isReady() bool {
 
 func (i *IDB) Save(value interface{}) error {
 	if !i.isReady() {
-		i.queue = append(i.queue, func() {
-			i.Save(value)
-		})
 		return nil
 	}
 
@@ -97,9 +92,6 @@ func jsonStringify(v interface{}) string {
 
 func (i *IDB) loadAll(m Model) error {
 	if !i.isReady() {
-		i.queue = append(i.queue, func() {
-			i.loadAll(m)
-		})
 		return nil
 	}
 
@@ -136,23 +128,21 @@ func (i *IDB) loadAll(m Model) error {
 
 func (i *IDB) SyncIfNeeded(models []Model) {
 	if !i.isReady() {
-		i.queue = append(i.queue, func() {
-			i.SyncIfNeeded(models)
-		})
 		return
 	}
 	if !i.syncNeeded {
 		return
 	}
 	for _, m := range models {
-		i.initLastUpdated(m, func(m Model) {
-			i.getUnsyncedItems(m, i.sync)
-		})
+		<-i.initLastUpdated(m)
+		i.getUnsyncedItems(m, i.sync)
 	}
 	i.syncNeeded = false
 }
 
-func (i *IDB) Init(models []Model) {
+func (i *IDB) Init(models []Model) chan struct{} {
+	ch := make(chan struct {})
+
 	const version = 1
 	req := js.Global.Get("indexedDB").Call("open", i.name, version)
 	req.Set("onupgradeneeded", func(e js.Object) {
@@ -182,19 +172,18 @@ func (i *IDB) Init(models []Model) {
 		for _, m := range models {
 			i.loadAll(m)
 		}
-
-		for _, f := range i.queue {
-			f()
-		}
-		i.queue = []func(){}
+		close(ch)
 	})
 	req.Set("onerror", i.idxOnError)
+
+	return ch
 }
 
-func (i *IDB) initLastUpdated(m Model, f func(Model)) {
+func (i *IDB) initLastUpdated(m Model) chan struct{} {
+	ch := make(chan struct{})
 	if !i.lastUpdated.IsZero() {
-		f(m)
-		return
+		close(ch)
+		return ch
 	}
 
 	maxLastUpdated := time.Time{}
@@ -219,9 +208,10 @@ func (i *IDB) initLastUpdated(m Model, f func(Model)) {
 				i.lastUpdated = maxLastUpdated
 			}
 		}
-		f(m)
+		close(ch)
 	})
 	req.Set("onerror", i.idxOnError)
+	return ch
 }
 
 func (i *IDB) getUnsyncedItems(m Model, f func(Model, []interface{})) {
