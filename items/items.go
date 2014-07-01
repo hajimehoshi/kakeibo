@@ -122,7 +122,8 @@ func (i *Items) saveItem(item *models.ItemData) error {
 	if i.storage == nil {
 		return nil
 	}
-	if err := i.storage.Save(item); err != nil {
+	err := i.storage.Save(item) //gopherjs:blocking
+	if err != nil {
 		return err
 	}
 	return nil

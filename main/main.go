@@ -24,7 +24,7 @@ func main() {
 
 	// TODO: Don't use IndexedDB (if needed).
 	// Or, create shared worker.
-	db := idb.New(dbName, printError)
+	db := idb.New(dbName)
 
 	v := view.NewHTMLView(printError)
 	items := items.New(v, db)
@@ -59,7 +59,7 @@ func main() {
 	js.Global.Get("window").Call("onhashchange")
 
 	for {
-		err := db.SyncIfNeeded([]idb.Model{items}) //go:blocking
+		err := db.SyncIfNeeded([]idb.Model{items})
 		if err != nil {
 			printError(err)
 			return

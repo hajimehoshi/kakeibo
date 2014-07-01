@@ -24,11 +24,10 @@ type Model interface {
 }
 
 type IDB struct {
-	name         string
-	onErrorFunc  func(error)
-	db           js.Object
-	lastUpdated  time.Time
-	syncNeeded   bool
+	name        string
+	db          js.Object
+	lastUpdated time.Time
+	syncNeeded  bool
 }
 
 func toError(e js.Object) error {
@@ -67,23 +66,11 @@ func DeleteDBIfUserChanged(name string) error {
 	return nil
 }
 
-func New(name string, onErrorFunc func(error)) *IDB {
+func New(name string) *IDB {
 	return &IDB{
-		name:        name,
-		onErrorFunc: onErrorFunc,
-		syncNeeded:  true,
+		name:       name,
+		syncNeeded: true,
 	}
-}
-
-func (i *IDB) onError(err error) {
-	if i.onErrorFunc == nil {
-		return
-	}
-	i.onErrorFunc(err)
-}
-
-func (i *IDB) idxOnError(e js.Object) {
-	i.onError(toError(e.Get("target")))
 }
 
 func (i *IDB) Save(value interface{}) error {
@@ -96,13 +83,28 @@ func (i *IDB) put(v interface{}) error {
 	if err != nil {
 		return err
 	}
+
+	ch := make(chan error)
 	j := js.Global.Get("JSON").Call("parse", string(json))
 	db := i.db
 	t := reflect.TypeOf(v).Elem()
 	tr := db.Call("transaction", t.Name(), "readwrite")
 	s := tr.Call("objectStore", t.Name())
 	req := s.Call("put", j)
-	req.Set("onerror", i.idxOnError)
+	req.Set("onsuccess", func() {
+		close(ch)
+	})
+	req.Set("onerror", func(e js.Object) {
+		go func() {
+			ch <- toError(e.Get("target"))
+			close(ch)
+		}()
+	})
+
+	// FIXME
+	if err := <-ch; err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -111,6 +113,7 @@ func jsonStringify(v interface{}) string {
 }
 
 func (i *IDB) loadAll(m Model) error {
+	ch := make(chan error)
 	db := i.db
 	t := m.Type()
 	tr := db.Call("transaction", t.Name(), "readonly")
@@ -121,6 +124,7 @@ func (i *IDB) loadAll(m Model) error {
 		cursor := e.Get("target").Get("result")
 		if cursor.IsNull() {
 			m.OnLoaded(values)
+			close(ch)
 			return
 		}
 		value := cursor.Get("value")
@@ -131,14 +135,25 @@ func (i *IDB) loadAll(m Model) error {
 		v := reflect.New(t).Interface()
 		j := jsonStringify(value)
 		if err := json.Unmarshal([]byte(j), &v); err != nil {
-			i.onError(err)
+			go func() {
+				ch <- err
+				close(ch)
+			}()
 			return
 		}
 		values = append(values, v)
 		cursor.Call("continue")
 	})
-	req.Set("onerror", i.idxOnError)
+	req.Set("onerror", func(e js.Object) {
+		go func() {
+			ch <- toError(e.Get("target"))
+			close(ch)
+		}()
+	})
 
+	if err := <-ch; err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -150,7 +165,13 @@ func (i *IDB) SyncIfNeeded(models []Model) error {
 		if err := i.initLastUpdated(m); err != nil {
 			return err
 		}
-		i.getUnsyncedItems(m, i.sync)
+		v, err := i.getUnsyncedItems(m)
+		if err != nil {
+			return err
+		}
+		if err := i.sync(m, v); err != nil {
+			return err
+		}
 	}
 	i.syncNeeded = false
 	return nil
@@ -187,10 +208,6 @@ func (i *IDB) Init(models []Model) error {
 		/*i.db.Set("onerror", func(e js.Object) {
 			ch <- toError(e.Get("target"))
 		})*/
-
-		for _, m := range models {
-			i.loadAll(m)
-		}
 		close(ch)
 	})
 	req.Set("onerror", func(e js.Object) {
@@ -203,6 +220,13 @@ func (i *IDB) Init(models []Model) error {
 	if err := <-ch; err != nil {
 		return err
 	}
+
+	for _, m := range models {
+		if err := i.loadAll(m); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -226,8 +250,7 @@ func (i *IDB) initLastUpdated(m Model) error {
 		if !cursor.IsNull() {
 			value := cursor.Get("value")
 			l := value.Get("Meta").Get("LastUpdated").Str()
-			if err := maxLastUpdated.UnmarshalText([]byte(l));
-			err != nil {
+			if err := maxLastUpdated.UnmarshalText([]byte(l)); err != nil {
 				go func() {
 					ch <- err
 					close(ch)
@@ -238,6 +261,7 @@ func (i *IDB) initLastUpdated(m Model) error {
 				i.lastUpdated = maxLastUpdated
 			}
 		}
+		close(ch)
 	})
 	req.Set("onerror", func(e js.Object) {
 		go func() {
@@ -252,7 +276,9 @@ func (i *IDB) initLastUpdated(m Model) error {
 	return nil
 }
 
-func (i *IDB) getUnsyncedItems(m Model, f func(Model, []interface{})) {
+func (i *IDB) getUnsyncedItems(m Model) ([]interface{}, error) {
+	ch := make(chan error)
+
 	// A record whose LastUpdated is zero time means a record which is not
 	// synced.
 	zerot, _ := time.Time{}.MarshalText()
@@ -267,58 +293,51 @@ func (i *IDB) getUnsyncedItems(m Model, f func(Model, []interface{})) {
 	req.Set("onsuccess", func(e js.Object) {
 		cursor := e.Get("target").Get("result")
 		if cursor.IsNull() {
-			f(m, values)
+			close(ch)
 			return
 		}
 		j := cursor.Get("value")
 		jStr := jsonStringify(j)
 		value := reflect.New(t).Interface()
 		if err := json.Unmarshal([]byte(jStr), &value); err != nil {
-			i.onError(err)
+			go func() {
+				ch <- err
+				close(ch) // ?
+			}()
 			cursor.Call("continue")
 			return
 		}
 		values = append(values, value)
 		cursor.Call("continue")
-		return
 	})
-	req.Set("onerror", i.idxOnError)
+	req.Set("onerror", func(e js.Object) {
+		go func() {
+			ch <- toError(e)
+			close(ch)
+		}()
+	})
+
+	if err := <-ch; err != nil {
+		return nil, err
+	}
+
+	return values, nil
 }
 
-func (i *IDB) sync(m Model, values []interface{}) {
+func (i *IDB) sync(m Model, values []interface{}) error {
+	ch := make(chan error)
 	req := js.Global.Get("XMLHttpRequest").New()
 	req.Call("open", "POST", "/sync", true)
 	req.Set("onload", func(e js.Object) {
-		xhr := e.Get("target")
-		if xhr.Get("status").Int() != 200 {
-			return
-		}
-		text := xhr.Get("responseText").Str()
-		res := models.SyncResponse{}
-		if err := json.Unmarshal([]byte(text), &res); err != nil {
-			i.onError(err)
-			return
-		}
-		vals := []interface{}{}
-		for _, v := range res.Values {
-			v, ok := v.(*models.ItemData)
-			if !ok {
-				err := errors.New("idb: invalid response")
-				i.onError(err)
-				return
-			}
-			if err := i.put(v); err != nil {
-				i.onError(err)
-				return
-			}
-			vals = append(vals, v)
-		}
-		i.lastUpdated = res.LastUpdated
-		m.OnLoaded(vals)
+		close(ch)
 	})
 	req.Set("onerror", func(e js.Object) {
-		i.onError(toError(e))
+		go func() {
+			ch <- toError(e)
+			close(ch)
+		}()
 	})
+
 	request := models.SyncRequest{
 		Type:        m.Type().Name(),
 		LastUpdated: i.lastUpdated,
@@ -326,4 +345,32 @@ func (i *IDB) sync(m Model, values []interface{}) {
 	}
 	str, _ := json.Marshal(request)
 	req.Call("send", str)
+
+	if err := <-ch; err != nil {
+		return err
+	}
+
+	if s := req.Get("status").Int(); s != 200 {
+		return errors.New(fmt.Sprintf("idb: status is not OK: %d", s))
+	}
+	text := req.Get("responseText").Str()
+	res := models.SyncResponse{}
+	if err := json.Unmarshal([]byte(text), &res); err != nil {
+		return err
+	}
+	vals := []interface{}{}
+	for _, v := range res.Values {
+		v, ok := v.(*models.ItemData)
+		if !ok {
+			return errors.New("idb: invalid response")
+		}
+		if err := i.put(v); err != nil {
+			return err
+		}
+		vals = append(vals, v)
+	}
+	i.lastUpdated = res.LastUpdated
+	m.OnLoaded(vals)
+
+	return nil
 }
