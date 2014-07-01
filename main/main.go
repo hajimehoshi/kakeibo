@@ -14,27 +14,13 @@ func printError(err error) {
 	js.Global.Get("console").Call("error", err.Error())
 }
 
-func deleteDBIfUserChanged(name string) chan struct{} {
-	ch := make(chan struct{})
-	ls := js.Global.Get("localStorage")
-	last := ls.Call("getItem", "last_user_email").Str()
-	current := js.Global.Call("userEmail").Str()
-	if last == current {
-		close(ch)
-		return ch
-	}
-	req := js.Global.Get("indexedDB").Call("deleteDatabase", name)
-	req.Set("onsuccess", func() {
-		close(ch)
-	})
-	ls.Call("setItem", "last_user_email", current)
-	return ch
-}
-
 const dbName = "kakeibo"
 
 func main() {
-	<-deleteDBIfUserChanged(dbName)
+	if err := idb.DeleteDBIfUserChanged(dbName); err != nil {
+		printError(err)
+		return
+	}
 
 	// TODO: Don't use IndexedDB (if needed).
 	// Or, create shared worker.
@@ -44,7 +30,10 @@ func main() {
 	items := items.New(v, db)
 	v.SetItems(items)
 
-	<-db.Init([]idb.Model{items})
+	if err := db.Init([]idb.Model{items}); err != nil {
+		printError(err)
+		return
+	}
 
 	document := js.Global.Get("document")
 
@@ -70,7 +59,11 @@ func main() {
 	js.Global.Get("window").Call("onhashchange")
 
 	for {
-		db.SyncIfNeeded([]idb.Model{items})
+		err := db.SyncIfNeeded([]idb.Model{items}) //go:blocking
+		if err != nil {
+			printError(err)
+			return
+		}
 		time.Sleep(10 * time.Second)
 	}
 }

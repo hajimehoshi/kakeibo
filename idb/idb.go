@@ -31,6 +31,42 @@ type IDB struct {
 	syncNeeded   bool
 }
 
+func toError(e js.Object) error {
+	jsErr := e.Get("error")
+	name := jsErr.Get("name").Str()
+	msg := jsErr.Get("message").Str()
+	return errors.New(fmt.Sprintf("idb: %s: %s", name, msg))
+}
+
+func DeleteDBIfUserChanged(name string) error {
+	ch := make(chan error)
+
+	ls := js.Global.Get("localStorage")
+	last := ls.Call("getItem", "last_user_email").Str()
+	current := js.Global.Call("userEmail").Str()
+	if last == current {
+		close(ch)
+		return nil
+	}
+
+	req := js.Global.Get("indexedDB").Call("deleteDatabase", name)
+	req.Set("onsuccess", func(e js.Object) {
+		close(ch)
+	})
+	req.Set("onerror", func(e js.Object) {
+		go func() {
+			ch <- toError(e.Get("target"))
+			close(ch)
+		}()
+	})
+	ls.Call("setItem", "last_user_email", current)
+
+	if err := <-ch; err != nil {
+		return err
+	}
+	return nil
+}
+
 func New(name string, onErrorFunc func(error)) *IDB {
 	return &IDB{
 		name:        name,
@@ -46,27 +82,11 @@ func (i *IDB) onError(err error) {
 	i.onErrorFunc(err)
 }
 
-func (i *IDB) jsOnError(e js.Object) {
-	jsErr := e.Get("error")
-	name := jsErr.Get("name").Str()
-	msg := jsErr.Get("message").Str()
-	err := errors.New(fmt.Sprintf("idb: %s: %s", name, msg))
-	i.onError(err)
-}
-
 func (i *IDB) idxOnError(e js.Object) {
-	i.jsOnError(e.Get("target"))
-}
-
-func (i *IDB) isReady() bool {
-	return i.db != nil
+	i.onError(toError(e.Get("target")))
 }
 
 func (i *IDB) Save(value interface{}) error {
-	if !i.isReady() {
-		return nil
-	}
-
 	i.syncNeeded = true
 	return i.put(value)
 }
@@ -91,10 +111,6 @@ func jsonStringify(v interface{}) string {
 }
 
 func (i *IDB) loadAll(m Model) error {
-	if !i.isReady() {
-		return nil
-	}
-
 	db := i.db
 	t := m.Type()
 	tr := db.Call("transaction", t.Name(), "readonly")
@@ -126,22 +142,22 @@ func (i *IDB) loadAll(m Model) error {
 	return nil
 }
 
-func (i *IDB) SyncIfNeeded(models []Model) {
-	if !i.isReady() {
-		return
-	}
+func (i *IDB) SyncIfNeeded(models []Model) error {
 	if !i.syncNeeded {
-		return
+		return nil
 	}
 	for _, m := range models {
-		<-i.initLastUpdated(m)
+		if err := i.initLastUpdated(m); err != nil {
+			return err
+		}
 		i.getUnsyncedItems(m, i.sync)
 	}
 	i.syncNeeded = false
+	return nil
 }
 
-func (i *IDB) Init(models []Model) chan struct{} {
-	ch := make(chan struct {})
+func (i *IDB) Init(models []Model) error {
+	ch := make(chan error)
 
 	const version = 1
 	req := js.Global.Get("indexedDB").Call("open", i.name, version)
@@ -167,26 +183,35 @@ func (i *IDB) Init(models []Model) chan struct{} {
 	})
 	req.Set("onsuccess", func(e js.Object) {
 		i.db = e.Get("target").Get("result")
-		i.db.Set("onerror", i.idxOnError)
+		// TODO: Setting is necessary?
+		/*i.db.Set("onerror", func(e js.Object) {
+			ch <- toError(e.Get("target"))
+		})*/
 
 		for _, m := range models {
 			i.loadAll(m)
 		}
 		close(ch)
 	})
-	req.Set("onerror", i.idxOnError)
+	req.Set("onerror", func(e js.Object) {
+		go func() {
+			ch <- toError(e.Get("target"))
+			close(ch)
+		}()
+	})
 
-	return ch
+	if err := <-ch; err != nil {
+		return err
+	}
+	return nil
 }
 
-func (i *IDB) initLastUpdated(m Model) chan struct{} {
-	ch := make(chan struct{})
+func (i *IDB) initLastUpdated(m Model) error {
 	if !i.lastUpdated.IsZero() {
-		close(ch)
-		return ch
+		return nil
 	}
 
-	maxLastUpdated := time.Time{}
+	ch := make(chan error)
 
 	db := i.db
 	t := m.Type()
@@ -195,23 +220,36 @@ func (i *IDB) initLastUpdated(m Model) chan struct{} {
 	idx := s.Call("index", lastUpdatedIndex)
 	req := idx.Call("openCursor", nil, "prev")
 	req.Set("onsuccess", func(e js.Object) {
+		maxLastUpdated := time.Time{}
+
 		cursor := e.Get("target").Get("result")
 		if !cursor.IsNull() {
 			value := cursor.Get("value")
 			l := value.Get("Meta").Get("LastUpdated").Str()
 			if err := maxLastUpdated.UnmarshalText([]byte(l));
 			err != nil {
-				i.onError(err)
+				go func() {
+					ch <- err
+					close(ch)
+				}()
 				return
 			}
 			if i.lastUpdated.Before(maxLastUpdated) {
 				i.lastUpdated = maxLastUpdated
 			}
 		}
-		close(ch)
 	})
-	req.Set("onerror", i.idxOnError)
-	return ch
+	req.Set("onerror", func(e js.Object) {
+		go func() {
+			ch <- toError(e.Get("target"))
+			close(ch)
+		}()
+	})
+
+	if err := <-ch; err != nil {
+		return err
+	}
+	return nil
 }
 
 func (i *IDB) getUnsyncedItems(m Model, f func(Model, []interface{})) {
@@ -278,7 +316,9 @@ func (i *IDB) sync(m Model, values []interface{}) {
 		i.lastUpdated = res.LastUpdated
 		m.OnLoaded(vals)
 	})
-	req.Set("onerror", i.jsOnError)
+	req.Set("onerror", func(e js.Object) {
+		i.onError(toError(e))
+	})
 	request := models.SyncRequest{
 		Type:        m.Type().Name(),
 		LastUpdated: i.lastUpdated,
