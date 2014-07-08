@@ -147,15 +147,30 @@ func empty(e js.Object) {
 }
 
 func NewHTMLView(onErrorFunc func(error)) *HTMLView {
+	ch := make(chan js.Object)
 	v := &HTMLView{
 		onErrorFunc: onErrorFunc,
 	}
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
-	form.Set("onsubmit", v.onSubmit)
+	form.Set("onsubmit", func(e js.Object) {
+		e.Call("preventDefault")
+		go func() {
+			ch <- e
+		}()
+	})
 
 	a := document.Call("getElementById", "link_export_as_csv")
 	a.Set("onclick", v.onClickExportAsCSV)
+
+	go func() {
+		for e := range ch {
+			switch e.Get("type").Str() {
+			case "submit":
+				v.onSubmit(e)
+			}
+		}
+	}()
 
 	return v
 }
@@ -251,7 +266,8 @@ func (v *HTMLView) onSubmit(e js.Object) {
 		v.onErrorFunc(err)
 		return
 	}
-	if err := v.items.Save(id); err != nil {
+	err = v.items.Save(id) //gopherjs:blocking
+	if err != nil {
 		v.onErrorFunc(err)
 		return
 	}
