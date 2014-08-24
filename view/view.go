@@ -67,6 +67,15 @@ var (
 	}
 )
 
+func async(f func(e js.Object)) func(e js.Object) {
+	return func(e js.Object) {
+		e.Call("preventDefault")
+		go func() {
+			f(e)
+		}()
+	}
+}
+
 func isNumberType(t reflect.Type) bool {
 	for _, nt := range numberTypes {
 		if t.ConvertibleTo(nt) {
@@ -153,15 +162,14 @@ func NewHTMLView(onErrorFunc func(error)) *HTMLView {
 	}
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
-	form.Set("onsubmit", func(e js.Object) {
-		e.Call("preventDefault")
+	form.Set("onsubmit", async(func(e js.Object) {
 		go func() {
 			ch <- e
 		}()
-	})
+	}))
 
 	a := document.Call("getElementById", "link_export_as_csv")
-	a.Set("onclick", v.onClickExportAsCSV)
+	a.Set("onclick", async(v.onClickExportAsCSV))
 
 	go func() {
 		for e := range ch {
@@ -222,7 +230,7 @@ func (v *HTMLView) addEventListeners(items Items, form js.Object) {
 	})
 }
 
-func (v *HTMLView) SetItems(items *items.Items) {
+func (v *HTMLView) SetItems(items Items) {
 	v.items = items
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
@@ -259,7 +267,6 @@ func (v *HTMLView) OnHashChange(e js.Object) {
 }
 
 func (v *HTMLView) onSubmit(e js.Object) {
-	e.Call("preventDefault")
 	form := e.Get("target")
 	id, err := getIDFromElement(form)
 	if err != nil {
@@ -274,7 +281,6 @@ func (v *HTMLView) onSubmit(e js.Object) {
 }
 
 func (v *HTMLView) onClickExportAsCSV(e js.Object) {
-	e.Call("preventDefault")
 	if err := v.items.DownloadCSV(); err != nil {
 		v.onErrorFunc(err)
 		return
@@ -403,7 +409,7 @@ func (v *HTMLView) addIDToItemTable(id uuid.UUID) {
 	td := document.Call("createElement", "td")
 	td.Call("appendChild", a)
 	td.Get("classList").Call("add", "action")
-	a.Set("onclick", v.onClickToDelete)
+	a.Set("onclick", async(v.onClickToDelete))
 	tr.Call("appendChild", td)
 
 	tbody := table.Call("getElementsByTagName", "tbody").Index(0)
@@ -411,17 +417,19 @@ func (v *HTMLView) addIDToItemTable(id uuid.UUID) {
 }
 
 func (v *HTMLView) onClickToDelete(e js.Object) {
-	e.Call("preventDefault")
 	id, err := getIDFromElement(e.Get("target"))
 	if err != nil {
 		v.onErrorFunc(err)
 		return
 	}
 	// TODO: Show confirming alert if needed.
-	if err := v.items.Destroy(id); err != nil {
-		v.onErrorFunc(err)
-		return
-	}
+	go func() {
+		err = v.items.Destroy(id) //gopherjs:blocking
+		if err != nil {
+			v.onErrorFunc(err)
+			return
+		}
+	}()
 }
 
 func (v *HTMLView) Download(b []byte, filename string) {

@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const Zero = UUID("00000000-0000-4000-8000-000000000000")
+var Zero = *new(UUID)
 
 const parsePattern = "^([0-9a-fA-F]{8})-([0-9a-fA-F]{4})-" +
 	"(4[0-9a-fA-F]{3})-([89abAB][0-9a-fA-F]{3})-([0-9a-fA-F]{12})$"
