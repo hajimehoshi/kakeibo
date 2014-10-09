@@ -32,7 +32,7 @@ func init() {
 	}
 	lines := bytes.Split(content, []byte("\n"))
 	for _, l := range lines {
-		l := strings.Trim(string(l), " \r\n\t\v")
+		l := strings.Trim(string(l), " \r\n\t\f")
 		if len(l) == 0 || l[0] == '#' {
 			continue
 		}

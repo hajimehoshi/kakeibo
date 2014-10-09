@@ -10,6 +10,7 @@ const (
 	unixEpochDays = (1969*365 + 1969/4 - 1969/100 + 1969/400)
 )
 
+// TODO: Can we change this to a struct?
 type Date int32
 
 func New(year int, month time.Month, day int) Date {

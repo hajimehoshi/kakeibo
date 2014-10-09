@@ -12,12 +12,6 @@ type Meta struct {
 	UserID      string `json:"-"`
 }
 
-func NewMeta() Meta {
-	return Meta{
-		ID: uuid.Generate(),
-	}
-}
-
 func (m *Meta) IsValid() bool {
 	return m.ID.IsValid()
 }

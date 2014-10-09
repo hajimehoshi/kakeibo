@@ -24,6 +24,7 @@ type Items interface {
 	DownloadCSV() error
 }
 
+// TODO: Rename this to html_view
 // TODO: I18N
 
 const (
@@ -50,22 +51,20 @@ func toDatasetProp(attr string) string {
 	return strings.Join(tokens, "")
 }
 
-var (
-	numberTypes = []reflect.Type{
-		reflect.TypeOf((*int)(nil)).Elem(),
-		reflect.TypeOf((*int8)(nil)).Elem(),
-		reflect.TypeOf((*int16)(nil)).Elem(),
-		reflect.TypeOf((*int32)(nil)).Elem(),
-		reflect.TypeOf((*int64)(nil)).Elem(),
-		reflect.TypeOf((*uint)(nil)).Elem(),
-		reflect.TypeOf((*uint8)(nil)).Elem(),
-		reflect.TypeOf((*uint16)(nil)).Elem(),
-		reflect.TypeOf((*uint32)(nil)).Elem(),
-		reflect.TypeOf((*uint64)(nil)).Elem(),
-		reflect.TypeOf((*float32)(nil)).Elem(),
-		reflect.TypeOf((*float64)(nil)).Elem(),
-	}
-)
+var numberTypes = []reflect.Type{
+	reflect.TypeOf((*int)(nil)).Elem(),
+	reflect.TypeOf((*int8)(nil)).Elem(),
+	reflect.TypeOf((*int16)(nil)).Elem(),
+	reflect.TypeOf((*int32)(nil)).Elem(),
+	reflect.TypeOf((*int64)(nil)).Elem(),
+	reflect.TypeOf((*uint)(nil)).Elem(),
+	reflect.TypeOf((*uint8)(nil)).Elem(),
+	reflect.TypeOf((*uint16)(nil)).Elem(),
+	reflect.TypeOf((*uint32)(nil)).Elem(),
+	reflect.TypeOf((*uint64)(nil)).Elem(),
+	reflect.TypeOf((*float32)(nil)).Elem(),
+	reflect.TypeOf((*float64)(nil)).Elem(),
+}
 
 func async(f func(e js.Object)) func(e js.Object) {
 	return func(e js.Object) {
@@ -163,6 +162,7 @@ func NewHTMLView(onErrorFunc func(error)) *HTMLView {
 	document := js.Global.Get("document")
 	form := document.Call("getElementById", "form_item")
 	form.Set("onsubmit", async(func(e js.Object) {
+		// TODO: Remove this goroutine?
 		go func() {
 			ch <- e
 		}()

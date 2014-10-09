@@ -81,7 +81,7 @@ func (i *Items) OnLoaded(vals []interface{}) {
 
 func (i *Items) createEditingItem(date date.Date) error {
 	item := &models.ItemData{
-		Meta: models.NewMeta(),
+		Meta: models.Meta{ID: uuid.Generate()},
 	}
 	item.Date = date
 	i.editingItem = item
