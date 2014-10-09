@@ -5,6 +5,7 @@ import (
 	"appengine/user"
 	"bytes"
 	"html/template"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -20,7 +21,8 @@ var forbiddenTmplStr = `
 `[1:]
 
 func init() {
-	f, err := os.Open("users.txt")
+	const filename = "users.txt"
+	f, err := os.Open(filename)
 	if err != nil {
 		panic(err)
 	}
@@ -47,6 +49,14 @@ func filterUsers(f http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := appengine.NewContext(r)
 		u := user.Current(c)
+		if u == nil {
+			w.Header().Set(
+				"Content-type",
+				"text/plain; charset=utf-8")
+			w.WriteHeader(http.StatusInternalServerError)
+			io.WriteString(w, "'login: required' is needed at app.yaml.\n")
+			return
+		}
 		if _, ok := permittedUserEmails[u.Email]; !ok {
 			w.Header().Set(
 				"Content-type",
