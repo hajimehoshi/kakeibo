@@ -102,12 +102,12 @@ func getIDElement(e js.Object) js.Object {
 func getIDFromElement(e js.Object) (uuid.UUID, error) {
 	e2 := getIDElement(e)
 	if e2 == nil {
-		return uuid.Zero, errors.New("view: element not found")
+		return *new(uuid.UUID), errors.New("view: element not found")
 	}
 	str := e2.Get("dataset").Get(toDatasetProp(datasetAttrID)).Str()
 	id, err := uuid.ParseString(str)
 	if err != nil {
-		return uuid.Zero, err
+		return *new(uuid.UUID), err
 	}
 	return id, nil
 }

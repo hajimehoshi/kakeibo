@@ -7,8 +7,6 @@ import (
 	"strings"
 )
 
-var Zero = *new(UUID)
-
 const parsePattern = "^([0-9a-fA-F]{8})-([0-9a-fA-F]{4})-" +
 	"(4[0-9a-fA-F]{3})-([89abAB][0-9a-fA-F]{3})-([0-9a-fA-F]{12})$"
 
@@ -25,7 +23,7 @@ type UUID string
 
 func ParseString(str string) (UUID, error) {
 	if !parseReg.MatchString(str) {
-		return Zero, errors.New("uuid: invalid UUID (v4) string")
+		return *new(UUID), errors.New("uuid: invalid UUID (v4) string")
 	}
 	return UUID(strings.ToLower(str)), nil
 }
