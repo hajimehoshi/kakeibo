@@ -269,11 +269,13 @@ input[type=submit] {
     body > nav {
         display: none;
     }
+    body > aside {
+        display: none;
+    }
     body > main {
         height: auto;
         left: 0;
-        position: relative:
-        top: 0;
+        top: 24px;
         width: auto;
     }
     #form_item {

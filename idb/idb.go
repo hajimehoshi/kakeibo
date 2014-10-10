@@ -270,10 +270,7 @@ func (i *IDB) initLastUpdated(m Model) error {
 		}()
 	})
 
-	if err := <-ch; err != nil {
-		return err
-	}
-	return nil
+	return <-ch
 }
 
 func (i *IDB) getUnsyncedItems(m Model) ([]interface{}, error) {
@@ -320,7 +317,6 @@ func (i *IDB) getUnsyncedItems(m Model) ([]interface{}, error) {
 	if err := <-ch; err != nil {
 		return nil, err
 	}
-
 	return values, nil
 }
 
